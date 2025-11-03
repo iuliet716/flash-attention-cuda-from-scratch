@@ -1,5 +1,5 @@
-# Flash-Attention-CUDA-Toy
-CUDA toy-implementation of FlashAttention for learning
+# Flash-Attention-CUDA-from-scratch
+CUDA implementation of FlashAttention for learning
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
