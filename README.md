@@ -16,6 +16,18 @@ the intermediate matrices $S = QK^T$ and $P = \text{softmax}(S)$ are read from a
 
 In FlashAttention, these operations are performed entirely on-chip in SRAM, **without materializing $S$ or $P$ in HBM.**
 
+## Performance
+
+### HBM accesses
+- Standard Attention : $\Theta(Nd + N^2)$
+- FlashAttention : $\Theta(\displaystyle\frac{N^2d^2}{M})$
+
+<br>
+
+$N$ : sequence lenth  
+$d$ : head dimension  
+$M$ : size of SRAM with $d \le M \le Nd$
+
 ## How it works
 
 ### Tiling
