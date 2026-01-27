@@ -22,8 +22,6 @@ In FlashAttention, these operations are performed entirely on-chip in SRAM, **wi
 - Standard Attention : $\Theta(Nd + N^2)$
 - FlashAttention : $\Theta(\displaystyle\frac{N^2d^2}{M})$
 
-<br>
-
 $N$ : sequence lenth  
 $d$ : head dimension  
 $M$ : size of SRAM with $d \le M \le Nd$
