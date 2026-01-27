@@ -39,4 +39,4 @@ This does increase FLOPs slightly but it’s acceptable because the dominant bot
 ### Online Softmax
 
 The Softmax computation requires the maximum and the sum of exponentials for each row.  
-Since we divide each row into blocks, this method is needed to **ensure the exact output**.
+Since we divide each row into blocks, block-wise rescaling is needed to **ensure the exact output**.
