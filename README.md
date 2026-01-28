@@ -3,6 +3,14 @@ CUDA implementation of FlashAttention for learning
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
+## Get Started
+
+```bash
+$ nvcc flash_attn.cu -o build/flash_attn
+
+$ ./build/flash_attn
+```
+
 ## What is FlashAttention
 
 Fast and Memory-efficient Attention
