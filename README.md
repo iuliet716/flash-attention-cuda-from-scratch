@@ -26,6 +26,8 @@ $N$ : sequence length
 $d$ : head dimension  
 $M$ : size of SRAM with $d \le M \le Nd$
 
+For typical values of $d$ (64-128) and $M$ (around 100KB), $d^2 << M$ 
+
 ## How it works
 
 ### Tiling
