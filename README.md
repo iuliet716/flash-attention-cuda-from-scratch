@@ -17,7 +17,7 @@ For these reasons, **The bottleneck lies not in FLOPS but in memory traffic**.
 
 <img width="350" height="350" alt="image" src="https://github.com/user-attachments/assets/0f290693-10c8-47b4-a553-33e363fa3b93" />
 
-To reduce memory traffic, **FlashAttention** computes Self-Attention in on-chip tiles (SRAM), **without storing the full $N \times N$ matrices in HBM**.
+To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip tiles (SRAM), without storing the full $N \times N$ matrices in HBM**.
 
 ## Implementation Details
 
