@@ -27,10 +27,8 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 - [ ] Online Softmax
 
 ### To-do
-- [ ] Warp-level optimization
-- [ ] Dropout
-- [ ] Backward
 - [ ] Mixed Precision
+- [ ] Backward
 
 ## Benchmark
 
