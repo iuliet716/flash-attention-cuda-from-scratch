@@ -21,6 +21,20 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 
 ## Implementation Details
 
+### Must-have  
+- [ ] Tiling
+- [ ] Recomputation
+- [ ] Online Softmax
+
+### To-do
+- [ ] Warp-level optimization
+- [ ] MMA (Matrix Multiply and Accumulate)
+- [ ] Memory access optimization
+- [ ] Dropout
+- [ ] Multi-head optimization
+- [ ] Backward
+- [ ] Mixed Precision
+
 ## Benchmark
 
 ### Baseline: Standard Attention
