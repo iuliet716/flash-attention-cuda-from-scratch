@@ -39,7 +39,7 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 
 ### Baseline: Standard Attention
 
-To ensure optimization parity, optimized Standard Attentions are required.  
+To ensure parity, well-optimized Standard Attentions are required.  
 First, we need **reliable Standard Attention baselines for benchmark**.
 - [Pytorch Attention ('Math' Backend)](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
 - [Nvidia Megatron-LM ('local', 'fused' Backend)](https://github.com/NVIDIA/Megatron-LM)
