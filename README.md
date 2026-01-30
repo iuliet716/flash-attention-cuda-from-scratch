@@ -28,10 +28,7 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 
 ### To-do
 - [ ] Warp-level optimization
-- [ ] MMA (Matrix Multiply and Accumulate)
-- [ ] Memory access optimization
 - [ ] Dropout
-- [ ] Multi-head optimization
 - [ ] Backward
 - [ ] Mixed Precision
 
