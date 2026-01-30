@@ -1,62 +1,35 @@
 # Flash-Attention-CUDA-from-scratch
-CUDA implementation of FlashAttention for learning
+CUDA implementation of FlashAttention for learning and Benchmark against Standard Attention baselines
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
-## Get Started
-
-```bash
-$ nvcc flash_attn.cu -o build/flash_attn
-
-$ ./build/flash_attn
-```
-
 ## What is FlashAttention
-
 Fast and Memory-efficient Attention
 
-## Key Idea: IO-Awareness
+### How it works
+FlashAttention’s advantage comes from GPU hardware characteristics.  
+The latest GPUs have enormous computing power (TFLOPs), but the memory bandwidth is relatively limited.  
 
-The bottleneck lies not in FLOPS but in memory traffic.
+**Standard Attention needs to read and write $N \times N$ matrices in HBM several times**, while calculating Self-Attention.  
+This results in $O(N^2)$ memory accesses and makes Self-Attention be considered a **memory-bound algorithm**.
 
-In standard attention,  
-the intermediate matrices $S = QK^T$ and $P = \text{softmax}(S)$ are read from and written to HBM, resulting in $O(N²)$ memory accesses.
+For these reasons, **The bottleneck lies not in FLOPS but in memory traffic**.
 
-In FlashAttention, these operations are performed entirely on-chip in SRAM, **without materializing $S$ or $P$ in HBM.**
+<img width="350" height="350" alt="image" src="https://github.com/user-attachments/assets/0f290693-10c8-47b4-a553-33e363fa3b93" />
 
-## Performance
+To reduce memory traffic, **FlashAttention** computes Self-Attention in on-chip tiles (SRAM), **without storing the full $N \times N$ matrices in HBM**.
 
-### HBM accesses
-- Standard Attention : $\Theta(Nd + N^2)$
-- FlashAttention : $\Theta(\displaystyle\frac{N^2d^2}{M})$
+## Implementation Details
 
-$N$ : sequence length  
-$d$ : head dimension  
-$M$ : size of SRAM with $d \le M \le Nd$
+## Benchmark
 
-For typical values of $d$ (64-128) and $M$ (around 100KB), $d^2 << M$ 
+### Baseline: Standard Attention
 
-## How it works
+To ensure optimization parity, an optimized Standard Attention implementation in CUDA is required.  
 
-### Tiling
+Implementation References
+> [CUTLASS Reference Implementation](https://github.com/NVIDIA/cutlass/blob/main/examples/41_fused_multi_head_attention/fused_multihead_attention_fixed_seqlen.cu)  
+> [PyTorch C++ Native 'Math' Backend](https://github.com/pytorch/pytorch/blob/f50e264a8688b966989efab4fbbe547d5eaf3c5b/aten/src/ATen/native/transformers/attention.cpp#L850)  
+> [Megatron-LM CoreAttention](https://github.com/NVIDIA/Megatron-LM/tree/main/megatron/core/transformer)
 
-It does not compute the entire attention at once, but processes it in **small blocks within SRAM**.
 
-1. Splits the $Q, K, V$ matrices into smaller blocks.
-2. Loads these blocks from the slow HBM into the fast on-chip SRAM.
-3. Fuses all operations (MatMul, Softmax, and the final MatMul with $V$) into a **single kernel**.
-4. Executes these **fused operations** **on the small blocks** entierly within SRAM.
-
-<img width="1790" height="690" alt="image" src="https://github.com/user-attachments/assets/ef365239-e55b-4aa6-ac59-22dfe63a6e91" />
-
-### Recomputation
-
-Standard Attention’s backward pass needs intermediate $N \times N$ matrices ($S, P$) calculated during the forward pass, resulting in $O(N^2)$ HBM aceesses.
-
-Instead of storing the $N \times N$ matrices, FlashAttention **recomputes $S, P$ for each block on-the-fly.**  
-This does increase FLOPs slightly but it’s acceptable because the dominant bottleneck is HBM I/O, not compute.
-
-### Online Softmax
-
-The Softmax computation requires the maximum and the sum of exponentials for each row.  
-Since we divide each row into blocks, **block-wise rescaling** is needed to **ensure the exact output**.
