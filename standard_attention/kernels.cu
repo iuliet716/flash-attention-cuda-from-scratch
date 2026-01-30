@@ -68,8 +68,8 @@ __global__ void standard_attention_value_kernel(
     float* __restrict__ O, 
     int N, int d) 
 {
-    int row = blockIdx.y * blockDim.y + threadIdx.y; // P Row Index
-    int col = blockIdx.x * blockDim.x + threadIdx.x; // V Col Index (Output Dim)
+    int row = blockIdx.y * blockDim.y + threadIdx.y; 
+    int col = blockIdx.x * blockDim.x + threadIdx.x; 
 
     if (row < N && col < d) {
         float acc = 0.0f;
