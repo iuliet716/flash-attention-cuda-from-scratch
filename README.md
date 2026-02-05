@@ -25,7 +25,6 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 - [ ] Tiling
 - [ ] Recomputation
 - [ ] Online Softmax
-- [ ] GEMM (General Matrix to Matrix Multiplication)
 - [ ] Warp Shuffle
 
 ### To-do
