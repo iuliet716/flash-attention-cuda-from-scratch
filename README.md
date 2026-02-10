@@ -42,9 +42,3 @@ First, we need **reliable Standard Attention baselines for benchmark**.
 
 Second, we should implement **Naive Standard Attention in CUDA to highlight its memory bottleneck**.
 
-Implementation References
-> [CUTLASS Reference Implementation](https://github.com/NVIDIA/cutlass/blob/main/examples/41_fused_multi_head_attention/fused_multihead_attention_fixed_seqlen.cu)  
-> [PyTorch C++ Native 'Math' Backend](https://github.com/pytorch/pytorch/blob/f50e264a8688b966989efab4fbbe547d5eaf3c5b/aten/src/ATen/native/transformers/attention.cpp#L850)  
-> [Megatron-LM CoreAttention](https://github.com/NVIDIA/Megatron-LM/tree/main/megatron/core/transformer)
-
-
