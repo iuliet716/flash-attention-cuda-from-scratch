@@ -1,5 +1,7 @@
 #include "kernels.cuh"
+
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -8,6 +10,13 @@
 static void checkCuda(cudaError_t e, const char* msg) {
     if (e != cudaSuccess) {
         std::fprintf(stderr, "CUDA error (%s): %s\n", msg, cudaGetErrorString(e));
+        std::exit(1);
+    }
+}
+
+static void checkCublas(cublasStatus_t s, const char* msg) {
+    if (s != CUBLAS_STATUS_SUCCESS) {
+        std::fprintf(stderr, "CuBLAS error (%s): status=%d\n", msg, static_cast<int>(s));
         std::exit(1);
     }
 }
@@ -57,15 +66,19 @@ int main() {
     checkCuda(cudaMemset(dS, 0, bytesS), "memset S");
     checkCuda(cudaMemset(dO, 0, bytesO), "memset O");
 
-    // 1. S = QK^T * scale
-    launch_standard_attention_score(dQ, dK, dS, N, d, scale);
+    cublasHandle_t cublas_handle;
+    checkCublas(cublasCreate(&cublas_handle), "cublasCreate");
+    checkCublas(cublasSetStream(cublas_handle, 0), "cublasSetStream");
+
+    // 1. S = scale * QK^T (CuBLAS SGEMM)
+    checkCublas(launch_standard_attention_score(cublas_handle, dQ, dK, dS, N, d, scale), "QK^T SGEMM");
 
     // 2. S = softmax(S)   (in-place)
     // warps_per_block = 4 (128 threads)
     launch_standard_softmax(dS, N, 4);
 
-    // 3. O = PV
-    launch_standard_attention_value(dS, dV, dO, N, d);
+    // 3. O = PV (CuBLAS SGEMM)
+    checkCublas(launch_standard_attention_value(cublas_handle, dS, dV, dO, N, d), "PV SGEMM");
 
     // Sync and Error Check
     checkCuda(cudaGetLastError(), "kernel launch");
@@ -75,6 +88,7 @@ int main() {
     checkCuda(cudaMemcpy(hO, dO, bytesO, cudaMemcpyDeviceToHost), "D2H O");
 
     // Free
+    checkCublas(cublasDestroy(cublas_handle), "cublasDestroy");
     cudaFree(dQ);
     cudaFree(dK);
     cudaFree(dV);

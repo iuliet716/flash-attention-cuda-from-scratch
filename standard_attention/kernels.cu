@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 #include <math_constants.h>
 #include <math.h>
-#include <stdio.h>
 
 __device__ __forceinline__ float warp_reduce_max(float v) {
     unsigned mask = 0xffffffffu;
@@ -19,69 +19,16 @@ __device__ __forceinline__ float warp_reduce_sum(float v) {
     return v;
 }
 
-// Kernel 1: Calculate QK^T and materialize scores in HBM
-template<int BM=16, int BN=16, int BK=16>
-__global__ void standard_attention_score_kernel(
-    const float* __restrict__ Q, 
-    const float* __restrict__ K, 
-    float* __restrict__ S, // Attention Scores stored in HBM (N x N)
-    int N, int d, float scale) 
-{
-    // Q, K tiles in shared memory (16 x 16)
-    __shared__ float Qsh[BM][BK];
-    __shared__ float Ksh[BN][BK];
-
-    int row0 = blockIdx.y * BM;
-    int col0 = blockIdx.x * BN;
-
-    int ty = threadIdx.y;
-    int tx = threadIdx.x;
-
-    int row = row0 + ty;
-    int col = col0 + tx;
-
-    float score = 0.0f;
-
-    for (int k0 = 0; k0 < d; k0 += BK) {
-        // Load Q tile: Qsh[ty][k] = Q[row, k0 + k]
-        if (row < N && (k0 + tx) < d) {
-            Qsh[ty][tx] = Q[row * d + (k0 + tx)];
-        } else {
-            Qsh[ty][tx] = 0.0f;
-        }
-
-        // Load K tile: Ksh[col_in_tile][k] = K[col, k0 + k]
-        if (col < N && (k0 + ty) < d) {
-            Ksh[tx][ty] = K[col * d + (k0 + ty)];
-        } else {
-            Ksh[tx][ty] = 0.0f;
-        }
-
-        __syncthreads();
-
-        #pragma unroll
-        for (int kk = 0; kk < BK; ++kk) {
-            score += Qsh[ty][kk] * Ksh[tx][kk];
-        }
-
-        __syncthreads();
-    }
-
-    if (row < N && col < N) {
-        S[row * N + col] = score * scale;
-    }
-}
-
-// Kernel 2: Softmax Kernel (in-place)
+// Softmax Kernel (in-place)
 __global__ void standard_softmax_kernel(
     float* __restrict__ S,
-    int N) 
+    int N)
 {
     int warp_id_in_block = threadIdx.x >> 5;  // divide by 32
     int lane             = threadIdx.x & 31;
 
     int warps_per_block  = blockDim.x >> 5;
-    int row = blockIdx.x * warps_per_block + warp_id_in_block;
+    int row = blockIdx.x * warps_per_block + warp_id_in_block; // one warp for each row
 
     if (row >= N) return;
 
@@ -113,88 +60,51 @@ __global__ void standard_softmax_kernel(
     }
 }
 
-// Kernel 3: Write Output (QK^T * V)
-template<int BM=16, int BN=16, int BK=16>
-__global__ void standard_attention_value_kernel(
-    const float* __restrict__ P, 
-    const float* __restrict__ V, 
-    float* __restrict__ O, 
-    int N, int d) 
+// Compute S = scale * QK^T via column-major CuBLAS
+cublasStatus_t launch_standard_attention_score(
+    cublasHandle_t handle,
+    const float* dQ,
+    const float* dK,
+    float* dS,
+    int N,
+    int d,
+    float scale)
 {
-    __shared__ float Psh[BM][BK];
-    __shared__ float Vsh[BN][BK];
-
-    int row0 = blockIdx.y * BM;
-    int col0 = blockIdx.x * BN; 
-
-    int ty = threadIdx.y; 
-    int tx = threadIdx.x; 
-
-    int row = row0 + ty;
-    int col = col0 + tx;
-
-    float acc = 0.0f;
-
-    for (int k0 = 0; k0 < N; k0 += BK) {
-        // Load P tile: Psh[ty][k] = P[row, k0 + k]
-        if (row < N && (k0 + tx) < N) {
-            Psh[ty][tx] = P[row * N + (k0 + tx)];
-        } else {
-            Psh[ty][tx] = 0.0f;
-        }
-
-        // Load V tile: Vsh[col_in_tile][k] = V[k0 + k, col]
-        if (col < d && (k0 + ty) < N) {
-            Vsh[tx][ty] = V[(k0 + ty) * d + col];
-        } else {
-            Vsh[tx][ty] = 0.0f;
-        }
-
-        __syncthreads();
-
-        #pragma unroll
-        for (int kk = 0; kk < BK; ++kk) {
-            acc += Psh[ty][kk] * Vsh[tx][kk];
-        }
-
-        __syncthreads();
-    }
-
-    if (row < N && col < d) {
-        O[row * d + col] = acc;
-    }
-}
-
-template __global__ void standard_attention_score_kernel<16,16,16>(
-    const float*, const float*, float*, int, int, float
-);
-
-template __global__ void standard_attention_value_kernel<16,16,16>(
-    const float*, const float*, float*, int, int
-);
-
-void launch_standard_attention_score(
-    const float* dQ, const float* dK, float* dS,
-    int N, int d, float scale, cudaStream_t stream
-){
-    dim3 block(16, 16);                      // (BN, BM)
-    dim3 grid((N + 15)/16, (N + 15)/16);
-    standard_attention_score_kernel<16,16,16><<<grid, block, 0, stream>>>(dQ, dK, dS, N, d, scale);
+    const float beta = 0.0f;
+    return cublasSgemm(
+        handle, CUBLAS_OP_T, CUBLAS_OP_N,
+        N, N, d,
+        &scale, dK, d, dQ, d, 
+        &beta, dS, N);
 }
 
 void launch_standard_softmax(
-    float* dS, int N, int warps_per_block, cudaStream_t stream
-){
+    float* dS,
+    int N,
+    int warps_per_block,
+    cudaStream_t stream)
+{
     int threads = warps_per_block * 32;
     int blocks  = (N + warps_per_block - 1) / warps_per_block;
     standard_softmax_kernel<<<blocks, threads, 0, stream>>>(dS, N);
 }
 
-void launch_standard_attention_value(
-    const float* dP, const float* dV, float* dO,
-    int N, int d, cudaStream_t stream
-){
-    dim3 block(16, 16);                      // (BN, BM)
-    dim3 grid((d + 15)/16, (N + 15)/16);
-    standard_attention_value_kernel<16,16,16><<<grid, block, 0, stream>>>(dP, dV, dO, N, d);
+// Compute O = PV via column-major CuBLAS
+cublasStatus_t launch_standard_attention_value(
+    cublasHandle_t handle,
+    const float* dP,
+    const float* dV,
+    float* dO,
+    int N,
+    int d)
+{
+    const float alpha = 1.0f;
+    const float beta = 0.0f;
+    return cublasSgemm(
+        handle,
+        CUBLAS_OP_N,
+        CUBLAS_OP_N,
+        d, N, N,
+        &alpha, dV, d, dP, N,
+        &beta, dO, d);
 }
