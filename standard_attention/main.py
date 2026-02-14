@@ -1,3 +1,4 @@
+import math
 import torch
 from torch.nn import functional as F
 from torch.nn.attention import sdpa_kernel, SDPBackend
@@ -21,6 +22,15 @@ def build_cuda():
         verbose=True,
     )
 
+def pytorch_ops_self_attention(q, k, v):
+    S, D = q.shape
+
+    scores = (q @ k.transpose(0, 1)) / math.sqrt(D)
+    softmax_scores = torch.softmax(scores, dim=-1)
+    out = softmax_scores @ v
+    
+    return out
+
 def pytorch_math_self_attention(q, k, v):
     S, D = q.shape
 
@@ -35,6 +45,25 @@ def pytorch_math_self_attention(q, k, v):
     # (S, D)
     return out.squeeze(0).squeeze(0)
 
+def diff_report(name, reference, other):
+    diff = (reference - other).abs()
+    max_abs = diff.max().item()
+    mean_abs = diff.mean().item()
+
+    denom = reference.abs().clamp_min(1e-8)
+    max_rel = (diff / denom).max().item()
+    mean_rel = (diff / denom).mean().item()
+
+    print(f"\n[{name}]")
+    print(f"max_abs_diff : {max_abs:e}")
+    print(f"mean_abs_diff: {mean_abs:e}")
+    print(f"max_rel_diff : {max_rel:e}")
+    print(f"mean_rel_diff: {mean_rel:e}")
+
+    atol = 1e-4
+    rtol = 1e-3
+    print("allclose:", torch.allclose(reference, other, atol=atol, rtol=rtol))
+
 # build CUDA
 cuda_extension = build_cuda()
 
@@ -48,28 +77,16 @@ v = torch.randn(seq_len, dim, dtype=torch.float32).cuda()
 # warm-up
 for _ in range(3):
     _ = cuda_extension.forward(q, k, v)
+    _ = pytorch_ops_self_attention(q, k, v)
     _ = pytorch_math_self_attention(q, k, v)
 torch.cuda.synchronize()
 
 # calculate Self-Attention
+o_torch_ops = pytorch_ops_self_attention(q, k, v)
 o_torch_math = pytorch_math_self_attention(q, k, v)
 o_cuda = cuda_extension.forward(q, k, v)
 torch.cuda.synchronize()
 
 # diff
-diff = (o_torch_math - o_cuda).abs()
-max_abs = diff.max().item()
-mean_abs = diff.mean().item()
-
-denom = o_torch_math.abs().clamp_min(1e-8)
-max_rel = (diff / denom).max().item()
-mean_rel = (diff / denom).mean().item()
-
-print(f"max_abs_diff : {max_abs:e}")
-print(f"mean_abs_diff: {mean_abs:e}")
-print(f"max_rel_diff : {max_rel:e}")
-print(f"mean_rel_diff: {mean_rel:e}")
-
-atol = 1e-4
-rtol = 1e-3
-print("allclose:", torch.allclose(o_torch_math, o_cuda, atol=atol, rtol=rtol))
+diff_report("torch_ops vs o_cuda", o_torch_ops, o_cuda)
+diff_report("torch_math vs o_cuda",  o_torch_math, o_cuda)
