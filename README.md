@@ -37,7 +37,7 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 
 To ensure parity, well-optimized Standard Attentions are required.  
 First, we need **reliable Standard Attention baselines for benchmark**.
-- [Pytorch Attention ('Math' Backend)](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
+- [Pytorch Attention](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
 
 Second, we should implement **Naive Standard Attention in CUDA to highlight its memory bottleneck**.
 
