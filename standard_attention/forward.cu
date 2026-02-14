@@ -24,6 +24,17 @@ static void checkCublas(cublasStatus_t s, const char* msg) {
     }
 }
 
+static cublasHandle_t get_cublas_handle() {
+    static thread_local cublasHandle_t handle = nullptr;
+    if (handle == nullptr) {
+        auto s = cublasCreate(&handle);
+        if (s != CUBLAS_STATUS_SUCCESS) {
+            throw std::runtime_error("cublasCreate failed");
+        }
+    }
+    return handle;
+}
+
 torch::Tensor standard_attention_forward(
     const torch::Tensor& q,
     const torch::Tensor& k,
@@ -46,10 +57,9 @@ torch::Tensor standard_attention_forward(
     auto o = torch::empty({N, d}, options);
 
     c10::cuda::CUDAGuard device_guard(q_contig.device());
-    at::cuda::CUDAStream stream = at::cuda::getDefaultCUDAStream();
+    auto stream = at::cuda::getDefaultCUDAStream();
 
-    cublasHandle_t cublas_handle;
-    checkCublas(cublasCreate(&cublas_handle), "cublasCreate");
+    cublasHandle_t cublas_handle = get_cublas_handle();
     checkCublas(cublasSetStream(cublas_handle, stream.stream()), "cublasSetStream");
 
     const float* dQ = q_contig.data_ptr<float>();
@@ -64,8 +74,6 @@ torch::Tensor standard_attention_forward(
     checkCublas(launch_standard_attention_value(cublas_handle, dS, dV, dO, N, d), "PV SGEMM");
 
     checkCuda(cudaGetLastError(), "kernel launch");
-
-    checkCublas(cublasDestroy(cublas_handle), "cublasDestroy");
 
     return o;
 }
