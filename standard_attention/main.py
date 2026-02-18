@@ -22,28 +22,20 @@ def build_cuda():
         verbose=True,
     )
 
-def pytorch_ops_self_attention(q, k, v):
-    S, D = q.shape
+def pytorch_ops_attention(q, k, v):
+    D = q.shape[-1]
 
-    scores = (q @ k.transpose(0, 1)) / math.sqrt(D)
+    scores = (q @ k.transpose(-2, -1)) / math.sqrt(D)
     softmax_scores = torch.softmax(scores, dim=-1)
     out = softmax_scores @ v
     
     return out
 
-def pytorch_math_self_attention(q, k, v):
-    S, D = q.shape
-
-    # (1, 1, S, D)
-    q = q.unsqueeze(0).unsqueeze(0)
-    k = k.unsqueeze(0).unsqueeze(0)
-    v = v.unsqueeze(0).unsqueeze(0)
-
+def pytorch_math_attention(q, k, v):
     with sdpa_kernel([SDPBackend.MATH]):
         out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=False)
 
-    # (S, D)
-    return out.squeeze(0).squeeze(0)
+    return out
 
 def diff_report(name, reference, other):
     diff = (reference - other).abs()
@@ -95,15 +87,21 @@ def bench(function, iters=200, warm_up=5):
 cuda_extension = build_cuda()
 
 # declare Q, K, V
-seq_len, dim = 256, 768
+batch = 8
+num_heads = 16
+seq_len = 256
+dim = 64
 
-q = torch.randn(seq_len, dim, dtype=torch.float32).cuda()
-k = torch.randn(seq_len, dim, dtype=torch.float32).cuda()
-v = torch.randn(seq_len, dim, dtype=torch.float32).cuda()
+assert dim % num_heads == 0
+head_dim = dim // num_heads
+
+q = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
+k = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
+v = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
 
 # calculate Self-Attention
-o_torch_ops = pytorch_ops_self_attention(q, k, v)
-o_torch_math = pytorch_math_self_attention(q, k, v)
+o_torch_ops = pytorch_ops_attention(q, k, v)
+o_torch_math = pytorch_math_attention(q, k, v)
 o_cuda = cuda_extension.forward(q, k, v)
 torch.cuda.synchronize()
 
@@ -111,8 +109,8 @@ torch.cuda.synchronize()
 diff_report("torch_ops vs o_cuda", o_torch_ops, o_cuda)
 diff_report("torch_math vs o_cuda",  o_torch_math, o_cuda)
 
-ops_stats  = bench(lambda: pytorch_ops_self_attention(q, k, v))
-math_stats = bench(lambda: pytorch_math_self_attention(q, k, v))
+ops_stats  = bench(lambda: pytorch_ops_attention(q, k, v))
+math_stats = bench(lambda: pytorch_math_attention(q, k, v))
 cuda_stats = bench(lambda: cuda_extension.forward(q, k, v))
 
 print("\n=== Speed (ms) ===")
