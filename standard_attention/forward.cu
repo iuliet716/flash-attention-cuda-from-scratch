@@ -1,18 +1,16 @@
 #include "kernels.cuh"
 
-#include <torch/extension.h>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
 
 #include <ATen/cuda/CUDABlas.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
-
-#include <cuda_runtime.h>
 #include <cublas_v2.h>
-
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <limits>
+#include <cuda_runtime.h>
+#include <torch/extension.h>
 
 static void checkCuda(cudaError_t e, const char* msg) {
     if (e != cudaSuccess) {
@@ -65,7 +63,7 @@ torch::Tensor standard_attention_forward(
     const long long stride_qkv = (long long)N * (long long)d;
     const long long stride_s   = (long long)N * (long long)N;
 
-    // Calculate Attention Score
+    // Calculate Attention
     checkCublas(launch_standard_attention_score(cublas_handle, dQ, dK, dS, N, d, scale, stride_qkv, stride_s, batch_count), "QK^T SGEMM");
     launch_standard_softmax(dS, N, batch_count, 4, stream.stream());
     checkCuda(cudaGetLastError(), "softmax kernel launch");

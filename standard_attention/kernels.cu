@@ -1,7 +1,8 @@
+#include <math.h>
+
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 #include <math_constants.h>
-#include <math.h>
 
 __device__ __forceinline__ float warp_reduce_max(float v) {
     unsigned mask = 0xffffffffu;

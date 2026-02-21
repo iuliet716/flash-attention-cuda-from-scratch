@@ -99,7 +99,7 @@ q = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
 k = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
 v = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
 
-# calculate Self-Attention
+# calculate Attention
 o_torch_ops = pytorch_ops_attention(q, k, v)
 o_torch_math = pytorch_math_attention(q, k, v)
 o_cuda = cuda_extension.forward(q, k, v)

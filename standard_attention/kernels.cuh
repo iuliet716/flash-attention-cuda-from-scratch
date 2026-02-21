@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cuda_runtime.h>
 
 cublasStatus_t launch_standard_attention_score(
     cublasHandle_t handle,
@@ -21,7 +21,7 @@ void launch_standard_softmax(
     int N,
     int batch_count,
     int warps_per_block = 4,   // default: 4 warps = 128 threads
-    cudaStream_t stream = 0
+    cudaStream_t stream
 );
 
 cublasStatus_t launch_standard_attention_value(
