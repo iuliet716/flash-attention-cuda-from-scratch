@@ -6,11 +6,12 @@ from torch.utils import cpp_extension
 
 CUDA_LIB64 = "/usr/local/cuda/lib64"
 
-def build_cuda():
+def build_standard_attention_cuda():
     return cpp_extension.load(
         name="standard_attention_cuda",
         sources=[
-            "standard_attention/forward.cu",
+            "standard_attention/bindings.cpp",
+            "standard_attention/attention.cu",
             "standard_attention/kernels.cu",
         ],
         extra_cuda_cflags=["-O3"],
@@ -23,26 +24,33 @@ def build_cuda():
     )
 
 def pytorch_ops_attention(q, k, v):
+    # FP16
+    q, k, v = (x.half() for x in (q, k, v))
+
     D = q.shape[-1]
 
     scores = (q @ k.transpose(-2, -1)) / math.sqrt(D)
     softmax_scores = torch.softmax(scores, dim=-1)
     out = softmax_scores @ v
-    
     return out
 
 def pytorch_math_attention(q, k, v):
+    # FP16
+    q, k, v = (x.half() for x in (q, k, v))
+
     with sdpa_kernel([SDPBackend.MATH]):
         out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=False)
 
     return out
 
 def diff_report(name, reference, other):
-    diff = (reference - other).abs()
+    # FP32
+    diff = (reference.float() - other.float()).abs()
+
     max_abs = diff.max().item()
     mean_abs = diff.mean().item()
 
-    denom = reference.abs().clamp_min(1e-8)
+    denom = reference.abs().clamp_min(1e-4)
     max_rel = (diff / denom).max().item()
     mean_rel = (diff / denom).mean().item()
 
@@ -52,8 +60,8 @@ def diff_report(name, reference, other):
     print(f"max_rel_diff  : {max_rel:e}")
     print(f"mean_rel_diff : {mean_rel:e}")
 
-    atol = 1e-4
-    rtol = 1e-3
+    atol = 1e-3
+    rtol = 1e-2
     print("allclose      :", torch.allclose(reference, other, atol=atol, rtol=rtol))
 
 def bench(function, iters=200, warm_up=5):
@@ -84,7 +92,7 @@ def bench(function, iters=200, warm_up=5):
     }
 
 # build CUDA
-cuda_extension = build_cuda()
+standard_attention_cuda_extension = build_standard_attention_cuda()
 
 # declare Q, K, V
 batch = 8
@@ -95,29 +103,29 @@ dim = 64
 assert dim % num_heads == 0
 head_dim = dim // num_heads
 
-q = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
-k = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
-v = torch.randn(batch, num_heads, seq_len, dim, dtype=torch.float32).cuda()
+q = torch.randn(batch, num_heads, seq_len, head_dim, dtype=torch.float32).cuda()
+k = torch.randn(batch, num_heads, seq_len, head_dim, dtype=torch.float32).cuda()
+v = torch.randn(batch, num_heads, seq_len, head_dim, dtype=torch.float32).cuda()
 
 # calculate Attention
 o_torch_ops = pytorch_ops_attention(q, k, v)
 o_torch_math = pytorch_math_attention(q, k, v)
-o_cuda = cuda_extension.forward(q, k, v)
+o_standard_cuda = standard_attention_cuda_extension.forward(q, k, v)
 torch.cuda.synchronize()
 
 # diff
-diff_report("torch_ops vs o_cuda", o_torch_ops, o_cuda)
-diff_report("torch_math vs o_cuda",  o_torch_math, o_cuda)
+diff_report("torch_ops vs o_stnadard_cuda", o_torch_ops, o_standard_cuda)
+diff_report("torch_math vs o_standard_cuda",  o_torch_math, o_standard_cuda)
 
 ops_stats  = bench(lambda: pytorch_ops_attention(q, k, v))
 math_stats = bench(lambda: pytorch_math_attention(q, k, v))
-cuda_stats = bench(lambda: cuda_extension.forward(q, k, v))
+standard_cuda_stats = bench(lambda: standard_attention_cuda_extension.forward(q, k, v))
 
 print("\n=== Speed (ms) ===")
-print(f"torch_ops  : mean {ops_stats['mean_ms']:.4f} | median {ops_stats['median_ms']:.4f} | p95 {ops_stats['p95_ms']:.4f} | min {ops_stats['min_ms']:.4f}")
-print(f"torch_math : mean {math_stats['mean_ms']:.4f} | median {math_stats['median_ms']:.4f} | p95 {math_stats['p95_ms']:.4f} | min {math_stats['min_ms']:.4f}")
-print(f"CUDA       : mean {cuda_stats['mean_ms']:.4f} | median {cuda_stats['median_ms']:.4f} | p95 {cuda_stats['p95_ms']:.4f} | min {cuda_stats['min_ms']:.4f}")
+print(f"torch_ops     : mean {ops_stats['mean_ms']:.4f} | median {ops_stats['median_ms']:.4f} | p95 {ops_stats['p95_ms']:.4f} | min {ops_stats['min_ms']:.4f}")
+print(f"torch_math    : mean {math_stats['mean_ms']:.4f} | median {math_stats['median_ms']:.4f} | p95 {math_stats['p95_ms']:.4f} | min {math_stats['min_ms']:.4f}")
+print(f"standard_CUDA : mean {standard_cuda_stats['mean_ms']:.4f} | median {standard_cuda_stats['median_ms']:.4f} | p95 {standard_cuda_stats['p95_ms']:.4f} | min {standard_cuda_stats['min_ms']:.4f}")
 
-print("\n=== CUDA Speed-up (mean) ===")
-print(f"CUDA is faster than torch_ops by {ops_stats['mean_ms'] / cuda_stats['mean_ms']:.2f}x")
-print(f"CUDA is faster than torch_math by {math_stats['mean_ms'] / cuda_stats['mean_ms']:.2f}x")
+print("\n=== Speed-up (mean) ===")
+print(f"standard_CUDA is faster than torch_ops by {ops_stats['mean_ms'] / standard_cuda_stats['mean_ms']:.2f}x")
+print(f"standard_CUDA is faster than torch_math by {math_stats['mean_ms'] / standard_cuda_stats['mean_ms']:.2f}x")

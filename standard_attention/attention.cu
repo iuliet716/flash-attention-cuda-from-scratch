@@ -71,7 +71,3 @@ torch::Tensor standard_attention_forward(
 
     return out;
 }
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("forward", &standard_attention_forward, "standard attention forward (CUDA)");
-}
