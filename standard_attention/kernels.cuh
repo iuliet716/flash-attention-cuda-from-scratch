@@ -5,9 +5,9 @@
 
 cublasStatus_t launch_standard_attention_score(
     cublasHandle_t handle,
-    const float* dQ,
-    const float* dK,
-    float* dS,
+    const half* dQ,
+    const half* dK,
+    half* dS,
     int N,
     int d,
     float scale,
@@ -17,18 +17,18 @@ cublasStatus_t launch_standard_attention_score(
 );
 
 void launch_standard_softmax(
-    float* dS,
+    half* dS,
     int N,
     int batch_count,
     int warps_per_block = 4,   // default: 4 warps = 128 threads
-    cudaStream_t stream
+    cudaStream_t stream = 0
 );
 
 cublasStatus_t launch_standard_attention_value(
     cublasHandle_t handle,
-    const float* dP,
-    const float* dV,
-    float* dO,
+    const half* dP,
+    const half* dV,
+    half* dO,
     int N,
     int d,
     long long stride_p,

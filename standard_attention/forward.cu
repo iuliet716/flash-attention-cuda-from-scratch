@@ -33,9 +33,9 @@ torch::Tensor standard_attention_forward(
     TORCH_CHECK(k.is_cuda(), "k must be a CUDA tensor");
     TORCH_CHECK(v.is_cuda(), "v must be a CUDA tensor");
 
-    auto q_contig = q.contiguous();
-    auto k_contig = k.contiguous();
-    auto v_contig = v.contiguous();
+    auto q_contig = q.to(torch::kFloat16).contiguous();
+    auto k_contig = k.to(torch::kFloat16).contiguous();
+    auto v_contig = v.to(torch::kFloat16).contiguous();
 
     const int B = static_cast<int>(q_contig.size(0));
     const int H = static_cast<int>(q_contig.size(1));
@@ -54,11 +54,11 @@ torch::Tensor standard_attention_forward(
     cublasHandle_t cublas_handle = at::cuda::getCurrentCUDABlasHandle();
     checkCublas(cublasSetStream(cublas_handle, stream.stream()), "cublasSetStream");
 
-    const float* dQ = q_contig.data_ptr<float>();
-    const float* dK = k_contig.data_ptr<float>();
-    const float* dV = v_contig.data_ptr<float>();
-    float* dS = scores.data_ptr<float>();
-    float* dO = out.data_ptr<float>();
+    const half* dQ = (const half*)q_contig.data_ptr<at::Half>();
+    const half* dK = (const half*)k_contig.data_ptr<at::Half>();
+    const half* dV = (const half*)v_contig.data_ptr<at::Half>();
+    half* dS = (half*)scores.data_ptr<at::Half>();
+    half* dO = (half*)out.data_ptr<at::Half>();
 
     const long long stride_qkv = (long long)N * (long long)d;
     const long long stride_s   = (long long)N * (long long)N;
