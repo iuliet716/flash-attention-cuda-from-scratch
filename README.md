@@ -23,12 +23,10 @@ To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip ti
 
 ### Essentials
 - [ ] Tiling
-- [ ] Recomputation
 - [ ] Online Softmax
 - [ ] Warp Shuffle
 
 ### To-do
-- [ ] Mixed Precision
 - [ ] Backward
 
 ## Benchmark
