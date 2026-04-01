@@ -23,6 +23,23 @@ def build_standard_attention_cuda():
         verbose=True,
     )
 
+def build_flash_attention_cuda():
+    return cpp_extension.load(
+        name="flash_attention_cuda",
+        sources=[
+            "flash_attention/bindings.cpp",
+            "flash_attention/attention.cu",
+            "flash_attention/kernels.cu",
+        ],
+        extra_cuda_cflags=["-O3"],
+        extra_ldflags=[
+            f"-L{CUDA_LIB64}",
+            "-lcublas",
+            "-lcudart",
+        ],
+        verbose=True,
+    )
+
 def pytorch_ops_attention(q, k, v):
     # FP16
     q, k, v = (x.half() for x in (q, k, v))
@@ -93,6 +110,7 @@ def bench(function, iters=200, warm_up=5):
 
 # build CUDA
 standard_attention_cuda_extension = build_standard_attention_cuda()
+flash_attention_cuda_extension = build_flash_attention_cuda()
 
 # declare Q, K, V
 batch = 8
@@ -111,21 +129,26 @@ v = torch.randn(batch, num_heads, seq_len, head_dim, dtype=torch.float32).cuda()
 o_torch_ops = pytorch_ops_attention(q, k, v)
 o_torch_math = pytorch_math_attention(q, k, v)
 o_standard_cuda = standard_attention_cuda_extension.forward(q, k, v)
+o_flash_cuda = flash_attention_cuda_extension.forward(q, k, v)
 torch.cuda.synchronize()
 
 # diff
 diff_report("torch_ops vs o_stnadard_cuda", o_torch_ops, o_standard_cuda)
 diff_report("torch_math vs o_standard_cuda",  o_torch_math, o_standard_cuda)
+diff_report("o_standard_cuda vs o_flash_cuda",  o_flash_cuda, o_standard_cuda)
 
 ops_stats  = bench(lambda: pytorch_ops_attention(q, k, v))
 math_stats = bench(lambda: pytorch_math_attention(q, k, v))
 standard_cuda_stats = bench(lambda: standard_attention_cuda_extension.forward(q, k, v))
+flash_cuda_stats    = bench(lambda: flash_attention_cuda_extension.forward(q, k, v))
 
 print("\n=== Speed (ms) ===")
 print(f"torch_ops     : mean {ops_stats['mean_ms']:.4f} | median {ops_stats['median_ms']:.4f} | p95 {ops_stats['p95_ms']:.4f} | min {ops_stats['min_ms']:.4f}")
 print(f"torch_math    : mean {math_stats['mean_ms']:.4f} | median {math_stats['median_ms']:.4f} | p95 {math_stats['p95_ms']:.4f} | min {math_stats['min_ms']:.4f}")
 print(f"standard_CUDA : mean {standard_cuda_stats['mean_ms']:.4f} | median {standard_cuda_stats['median_ms']:.4f} | p95 {standard_cuda_stats['p95_ms']:.4f} | min {standard_cuda_stats['min_ms']:.4f}")
+print(f"flash_CUDA : mean {flash_cuda_stats['mean_ms']:.4f} | median {flash_cuda_stats['median_ms']:.4f} | p95 {flash_cuda_stats['p95_ms']:.4f} | min {flash_cuda_stats['min_ms']:.4f}")
 
 print("\n=== Speed-up (mean) ===")
 print(f"standard_CUDA is faster than torch_ops by {ops_stats['mean_ms'] / standard_cuda_stats['mean_ms']:.2f}x")
 print(f"standard_CUDA is faster than torch_math by {math_stats['mean_ms'] / standard_cuda_stats['mean_ms']:.2f}x")
+print(f"flash_CUDA is faster than standard_CUDA by {standard_cuda_stats['mean_ms'] / flash_cuda_stats['mean_ms']:.2f}x")
