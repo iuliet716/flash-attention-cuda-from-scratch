@@ -21,4 +21,8 @@ This results in $O(N^2)$ memory accesses and makes Self-Attention be considered 
 
 The implementation uses **tiling, online softmax, kernel fusion, recomputation, and other techniques described below**.
 
+## Implementation
+
+
+
 
