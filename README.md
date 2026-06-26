@@ -1,5 +1,5 @@
 # Flash-Attention-CUDA-from-scratch
-CUDA implementation of FlashAttention for learning and Benchmark against Standard Attention baselines
+CUDA implementation of FlashAttention for learning
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
@@ -10,32 +10,14 @@ Fast and Memory-efficient Attention
 FlashAttention’s advantage comes from GPU hardware characteristics.  
 The latest GPUs have enormous computing power (TFLOPs), but the memory bandwidth is relatively limited.  
 
-**Standard Attention needs to read and write $N \times N$ matrices in HBM several times**, while calculating Self-Attention.  
+**Standard Attention needs to read and write $N \times N$ matrices in HBM several times**.  
 This results in $O(N^2)$ memory accesses and makes Self-Attention be considered a **memory-bound algorithm**.
 
-For these reasons, **The bottleneck lies not in FLOPS but in memory traffic**.
+From this perspective, **FlashAttention views the main bottleneck of Self-Attention as memory traffic rather than FLOPs**
 
 <img width="350" height="350" alt="image" src="https://github.com/user-attachments/assets/0f290693-10c8-47b4-a553-33e363fa3b93" />
 
 To reduce memory traffic, **FlashAttention computes Self-Attention in on-chip tiles (SRAM), without storing the full $N \times N$ matrices in HBM**.
 
-## Implementation Details
 
-### Essentials
-- [ ] Tiling
-- [ ] Online Softmax
-- [ ] Warp Shuffle
-
-### To-do
-- [ ] Backward
-
-## Benchmark
-
-### Baseline: Standard Attention
-
-To ensure parity, well-optimized Standard Attentions are required.  
-First, we need **reliable Standard Attention baselines for benchmark**.
-- [Pytorch Attention](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
-
-Second, we should implement **Naive Standard Attention in CUDA to highlight its memory bottleneck**.
 
