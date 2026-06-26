@@ -19,7 +19,7 @@ This results in $O(N^2)$ memory accesses and makes Self-Attention be considered 
 
 **FlashAttention computes Self-Attention in on-chip tiles (SRAM), without storing the full $N \times N$ matrices in HBM**.  
 
-The implementation uses **tiling, online softmax, kernel fusion, recomputation, and other techniques described below**.
+The implementation uses **tiling, online softmax, kernel fusion, recomputation, and other techniques**.
 
 ## Implementation
 
