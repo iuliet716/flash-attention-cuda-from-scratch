@@ -19,7 +19,7 @@ This results in $O(N^2)$ memory accesses and makes Self-Attention be considered 
 
 **FlashAttention computes Self-Attention in on-chip tiles (SRAM), without storing the full $N \times N$ matrices in HBM**.  
 
-The implementation uses **tiling, online softmax, kernel fusion, recomputation, and other techniques described below**.
+The implementation uses **tiling, online softmax, kernel fusion, and other techniques described below**.
 
 ## Implementation
 
@@ -30,7 +30,7 @@ Detailed implementation notes for each step are provided in `/docs` directory.
 B = 00, H = 00, N = 00, d = 00
 | Step | Technique | Time | Speedup vs. prev. | Speedup vs. Baseline | Performance vs. PyTorch SDPA FlashAttention (%) |
 |---|---|---:|---:|---:|---:|
-| 00 | Naive Standard Attention (Baseline) | 0.0 ms | None | 0.0x | 0.0 % |
+| 00 | Naive Standard Attention (Baseline) | 0.0 ms | N/A | 0.0x | 0.0 % |
 | 01 | cuBLAS + Warp-reduction Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 % |
 | 02 | Online Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 % |
 | 03 | Naive Fused Attention (SRAM Tiling) | 0.0 ms | 0.0x | 0.0x | 0.0 % |
