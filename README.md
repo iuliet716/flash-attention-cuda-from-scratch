@@ -40,8 +40,8 @@ NVIDIA RTX 5090 32GB
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|
 | 00 | Naive Standard Attention (Baseline) | 287.232 ms | N/A | N/A | 1.9 | 0.9 % |
-| 01 | cuBLAS GEMM | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
-| 02 | Warp-reduction Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 01 | cuBLAS GEMM | 73.695 ms | 3.90x | 3.90x | 7.5 | 3.3 % |
+| 02 | Warp-reduction Softmax | 31.958 ms | 2.31x | 8.99x | 17.2 | 7.7 % |
 | 03 | Online Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 | 04 | Naive Fused Attention (SRAM Tiling) | 0.0 ms |0.0x | 0.0x | 0.0 | 0.0 % |
 | 05 | Coalescing + Vectorized Load | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
