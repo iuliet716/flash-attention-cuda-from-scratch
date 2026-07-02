@@ -28,7 +28,7 @@ Detailed implementation notes for each step are provided in `/docs` directory.
 
 ### Benchmark
 B = 00, H = 00, N = 00, d = 00
-| Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS | Speed vs. PyTorch SDPA FlashAttention (%) |
+| Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|
 | 00 | Naive Standard Attention (Baseline) | 0.0 ms | N/A | N/A | 0.0 | 0.0 % |
 | 01 | cuBLAS GEMM | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
