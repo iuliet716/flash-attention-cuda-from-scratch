@@ -3,6 +3,12 @@ CUDA implementation of FlashAttention for learning
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
+## Get Started
+```bash
+$ source env.sh
+$ python benchmark.py
+```
+
 ## What is FlashAttention
 Fast and Memory-efficient Attention
 
