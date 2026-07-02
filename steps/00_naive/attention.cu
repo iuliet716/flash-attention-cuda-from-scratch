@@ -13,7 +13,7 @@ static void checkCuda(cudaError_t e, const char* msg) {
     }
 }
 
-torch::Tensor flash_attention_forward(
+torch::Tensor attention_forward(
     const torch::Tensor& q,
     const torch::Tensor& k,
     const torch::Tensor& v)
@@ -22,9 +22,9 @@ torch::Tensor flash_attention_forward(
     TORCH_CHECK(k.is_cuda(), "k must be a CUDA tensor");
     TORCH_CHECK(v.is_cuda(), "v must be a CUDA tensor");
 
-    auto q_contig = q.to(torch::kFloat16).contiguous();
-    auto k_contig = k.to(torch::kFloat16).contiguous();
-    auto v_contig = v.to(torch::kFloat16).contiguous();
+    auto q_contig = q.to(torch::kFloat32).contiguous();
+    auto k_contig = k.to(torch::kFloat32).contiguous();
+    auto v_contig = v.to(torch::kFloat32).contiguous();
 
     const int B = static_cast<int>(q_contig.size(0));
     const int H = static_cast<int>(q_contig.size(1));
@@ -34,18 +34,24 @@ torch::Tensor flash_attention_forward(
     const int batch_count = B * H;
 
     auto options = q_contig.options();
+    auto scores = torch::empty({batch_count, N, N}, options);
     auto out = torch::empty({B, H, N, d}, options);
 
     c10::cuda::CUDAGuard device_guard(q_contig.device());
-    cudaStream_t stream = at::cuda::getDefaultCUDAStream();
+    auto stream = at::cuda::getDefaultCUDAStream();
 
-    const half* dQ = (const half*)(q_contig.data_ptr<at::Half>());
-    const half* dK = (const half*)(k_contig.data_ptr<at::Half>());
-    const half* dV = (const half*)(v_contig.data_ptr<at::Half>());
-    half* dO = (half*)out.data_ptr<at::Half>();
-
-    launch_flash_attention_forward(dQ, dK, dV, dO, N, d, scale, batch_count, stream);
-    checkCuda(cudaGetLastError(), "flash attention forward kernel launch");
+    const float* dQ = q_contig.data_ptr<float>();
+    const float* dK = k_contig.data_ptr<float>();
+    const float* dV = v_contig.data_ptr<float>();
+    float* dS       = scores.data_ptr<float>();
+    float* dO       = out.data_ptr<float>();
+    
+    launch_naive_qk(dQ, dK, dS, N, d, scale, batch_count, stream.stream());
+    checkCuda(cudaGetLastError(), "launch_naive_qk");
+    launch_naive_softmax(dS, N, batch_count, stream.stream());
+    checkCuda(cudaGetLastError(), "launch_naive_softmax");
+    launch_naive_pv(dS, dV, dO, N, d, batch_count, stream.stream());
+    checkCuda(cudaGetLastError(), "launch_naive_pv");
 
     return out;
 }
