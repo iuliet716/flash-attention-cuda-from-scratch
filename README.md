@@ -31,8 +31,6 @@ B=8, H=16, N=4096, d=64 (10 warm-up, 50 iterations)
 NVIDIA RTX 5090 32GB
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|
-| -- | PyTorch matmul + softmax | 41.887 ms | N/A | 6.86x | 13.1 | 5.9 % |
-| -- | PyTorch SDPA FlashAttention | 2.458 ms | N/A | 116.83x | 223.6 | 100.0 % |
 | 00 | Naive Standard Attention (Baseline) | 287.232 ms | N/A | N/A | 1.9 | 0.9 % |
 | 01 | cuBLAS GEMM | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 | 02 | Warp-reduction Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
@@ -43,6 +41,8 @@ NVIDIA RTX 5090 32GB
 | 07 | Half-Precision (FP16) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 | 08 | WMMA TensorCore | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 | 09 | Double Buffering | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| -- | PyTorch matmul + softmax | 41.887 ms | N/A | 6.86x | 13.1 | 5.9 % |
+| -- | PyTorch SDPA FlashAttention | 2.458 ms | N/A | 116.83x | 223.6 | 100.0 % |
 
 #### Note
 The last two columns show how each step progressively approaches PyTorch SDPA FlashAttention.  
