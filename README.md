@@ -27,10 +27,12 @@ We implement these techniques step by step and evaluate how each step affects pe
 Detailed implementation notes for each step are provided in `/docs` directory.
 
 ### Benchmark
-B = 00, H = 00, N = 00, d = 00
+B=8, H=16, N=4096, d=64 (10 warm-up, 50 iterations)
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|
-| 00 | Naive Standard Attention (Baseline) | 0.0 ms | N/A | N/A | 0.0 | 0.0 % |
+| -- | PyTorch matmul + softmax | 41.887 ms | N/A | 6.86x | 13.1 | 5.9 % |
+| -- | PyTorch SDPA FlashAttention | 2.458 ms | N/A | 116.83x | 223.6 | 100.0 % |
+| 00 | Naive Standard Attention (Baseline) | 287.232 ms | N/A | N/A | 1.9 | 0.9 % |
 | 01 | cuBLAS GEMM | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 | 02 | Warp-reduction Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 | 03 | Online Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
