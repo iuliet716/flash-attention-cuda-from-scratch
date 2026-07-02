@@ -184,7 +184,7 @@ def run_shape(modules, label, B, H, N, d, args, device):
         ("PyTorch matmul + softmax", eager_ms),
         ("PyTorch SDPA FlashAttention", sdpa_ms),
     ]
-    print_table(results, sdpa_ms, refs, B, H, N, d, label)
+    print_table(results, eager_ms, sdpa_ms, refs, B, H, N, d, label)
 
 
 def main():
@@ -256,7 +256,7 @@ def tflops(B, H, N, d, t_ms):
     return attention_flops(B, H, N, d) / (t_ms * 1e-3) / 1e12
 
 
-def print_table(results, sdpa_ms, refs, B, H, N, d, label=""):
+def print_table(results, eager_ms, sdpa_ms, refs, B, H, N, d, label=""):
     """Print a markdown benchmark table matching the README format."""
     baseline_ms = next((t for _, t, _ in results if t is not None), None)
 
@@ -264,9 +264,10 @@ def print_table(results, sdpa_ms, refs, B, H, N, d, label=""):
     print(f"\nBenchmark{tag}  (B = {B}, H = {H}, N = {N}, d = {d})\n")
     print(
         "| Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline "
-        "| TFLOPS* | Speed vs. PyTorch SDPA FlashAttention* (%) |"
+        "| TFLOPS* | Speed vs. PyTorch matmul + softmax (%) "
+        "| Speed vs. PyTorch SDPA FlashAttention* (%) |"
     )
-    print("|---|---|---:|---:|---:|---:|---:|")
+    print("|---|---|---:|---:|---:|---:|---:|---:|")
 
     failed = []
     prev_ms = None
@@ -274,7 +275,7 @@ def print_table(results, sdpa_ms, refs, B, H, N, d, label=""):
         step = step_prefix(name)
         tech = technique(name)
         if t_ms is None:
-            print(f"| {step} | {tech} | N/A | N/A | N/A | N/A | N/A |")
+            print(f"| {step} | {tech} | N/A | N/A | N/A | N/A | N/A | N/A |")
             continue
         if not ok:
             failed.append(step)
@@ -282,20 +283,22 @@ def print_table(results, sdpa_ms, refs, B, H, N, d, label=""):
         sp_prev = "N/A" if is_baseline else f"{prev_ms / t_ms:.2f}x"
         sp_base = "N/A" if is_baseline else f"{baseline_ms / t_ms:.2f}x"
         tf = f"{tflops(B, H, N, d, t_ms):.1f}"
+        pct_eager = f"{eager_ms / t_ms * 100:.1f} %"
         pct = f"{sdpa_ms / t_ms * 100:.1f} %"
         print(
             f"| {step} | {tech} | {fmt_time(t_ms)} | {sp_prev} | {sp_base} "
-            f"| {tf} | {pct} |"
+            f"| {tf} | {pct_eager} | {pct} |"
         )
         prev_ms = t_ms
 
     for ref_label, t_ms in refs:
         sp_base = f"{baseline_ms / t_ms:.2f}x" if baseline_ms else "N/A"
         tf = f"{tflops(B, H, N, d, t_ms):.1f}"
+        pct_eager = f"{eager_ms / t_ms * 100:.1f} %"
         pct = f"{sdpa_ms / t_ms * 100:.1f} %"
         print(
             f"| -- | {ref_label} | {fmt_time(t_ms)} | N/A | {sp_base} "
-            f"| {tf} | {pct} |"
+            f"| {tf} | {pct_eager} | {pct} |"
         )
 
     if failed:
