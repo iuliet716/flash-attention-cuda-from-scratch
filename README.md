@@ -53,8 +53,8 @@ NVIDIA RTX 5090 32GB
 | -- | PyTorch SDPA FlashAttention | 2.458 ms | N/A | 116.83x | 223.6 | 1704.1 % | 100.0 % |
 
 #### Note
-The last two columns show how each step progressively approaches the two PyTorch references (FP32 matmul + softmax, and FP16 SDPA FlashAttention).  
-*Steps 00–06 run in FP32, so part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.  
-*Likewise, TFLOPS reflects each dtype's hardware peak — FP32 steps have a much lower ceiling than 07+ steps.
+- The last two columns show how each step progressively approaches the two PyTorch references.
+- *Steps 00–06 run in FP32, so part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.
+- *Likewise, TFLOPS reflects each dtype's hardware peak — FP32 steps have a much lower ceiling than 07+ steps.
 
 
