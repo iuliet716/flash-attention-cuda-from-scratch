@@ -43,7 +43,7 @@ NVIDIA RTX 5090 32GB
 | 01 | cuBLAS GEMM | 73.695 ms | 3.90x | 3.90x | 7.5 | 56.8 % | 3.3 % |
 | 02 | Warp-reduction Softmax | 31.958 ms | 2.31x | 8.99x | 17.2 | 131.1 % | 7.7 % |
 | 03 | Online Softmax | 32.768 ms | 0.98x | 8.77x | 16.8 | 127.8 % | 7.5 % |
-| 04 | Naive Fused Attention (SRAM Tiling) | 0.0 ms |0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
+| 04 | Naive Fused Attention (SRAM Tiling) | 328.855 ms | 0.09x | 0.77x | 1.7 | 11.5 % | 0.7 % |
 | 05 | Coalescing + Vectorized Load | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
 | 06 | Bank Conflict Avoidance (Swizzling) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
 | 07 | Half-Precision (FP16) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
