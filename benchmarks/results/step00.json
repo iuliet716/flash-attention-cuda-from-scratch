@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "compute_capability": "12.0",
+    "sm_count": 170,
+    "vram_gib": 31.8,
+    "torch": "2.7.0+cu128",
+    "cuda": "12.8",
+    "date": "2026-07-02"
+  },
+  "shape": {
+    "B": 8,
+    "H": 16,
+    "N": 4096,
+    "d": 64
+  },
+  "total_ms": 269.177001953125,
+  "phase_ms": {
+    "QK matmul": 152.50617666666665,
+    "Softmax": 48.94150850000002,
+    "PV matmul": 45.888371333333374,
+    "Other": 0.0
+  },
+  "sweep_phase_ms": {
+    "256": {
+      "QK matmul": 0.5815481666666666,
+      "Softmax": 0.11789999999999994,
+      "PV matmul": 0.13821933333333344,
+      "Other": 0.0
+    },
+    "512": {
+      "QK matmul": 2.3771564999999995,
+      "Softmax": 0.6603896666666659,
+      "PV matmul": 0.9779733333333337,
+      "Other": 0.0
+    },
+    "1024": {
+      "QK matmul": 9.382393000000002,
+      "Softmax": 3.216587833333333,
+      "PV matmul": 2.977670333333332,
+      "Other": 0.0
+    },
+    "2048": {
+      "QK matmul": 37.96888,
+      "Softmax": 11.91170433333334,
+      "PV matmul": 12.056239166666671,
+      "Other": 0.0
+    },
+    "4096": {
+      "QK matmul": 153.006279,
+      "Softmax": 50.16013883333337,
+      "PV matmul": 46.93907116666669,
+      "Other": 0.0
+    }
+  },
+  "utilization": {
+    "QK matmul": {
+      "ms": 152.50617666666665,
+      "tflops": 1.8024050759911299,
+      "gbs": 58.0853198317454,
+      "pct_fp32_peak": 1.7198521717472615,
+      "pct_hbm_peak": 3.241368294182221
+    },
+    "Softmax": {
+      "ms": 48.94150850000002,
+      "tflops": 0.2193928746597583,
+      "gbs": 702.0571989112266,
+      "pct_fp32_peak": 0.2093443460493877,
+      "pct_hbm_peak": 39.177299046385414
+    },
+    "PV matmul": {
+      "ms": 45.888371333333374,
+      "tflops": 5.990143013516113,
+      "gbs": 193.0417182090154,
+      "pct_fp32_peak": 5.715785318240567,
+      "pct_hbm_peak": 10.772417310770948
+    }
+  },
+  "peaks": {
+    "fp32_tflops": 104.8,
+    "hbm_gbs": 1792.0,
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "source": "spec sheet"
+  },
+  "measured_copy_gbs": 1511.6651335094512,
+  "measured_sgemm_tflops": 66.15019932514438,
+  "kernel_timeline": [
+    [
+      "naive_qk_kernel(float const*, float const*, float*, int, int, float)",
+      152.5062
+    ],
+    [
+      "naive_softmax_kernel(float*, int, int)",
+      48.9415
+    ],
+    [
+      "naive_pv_kernel(float const*, float const*, float*, int, int)",
+      45.8884
+    ]
+  ]
+}

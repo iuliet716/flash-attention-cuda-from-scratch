@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "compute_capability": "12.0",
+    "sm_count": 170,
+    "vram_gib": 31.8,
+    "torch": "2.7.0+cu128",
+    "cuda": "12.8",
+    "date": "2026-07-02"
+  },
+  "shape": {
+    "B": 8,
+    "H": 16,
+    "N": 4096,
+    "d": 64
+  },
+  "steps": {
+    "00": {
+      "total_ms": 267.8052978515625,
+      "phase_ms": {
+        "QK matmul": 154.76836933333334,
+        "Softmax": 50.742066000000015,
+        "PV matmul": 47.09684166666673,
+        "Other": 0.0
+      }
+    },
+    "01": {
+      "total_ms": 68.18019104003906,
+      "phase_ms": {
+        "QK matmul": 8.488996499999995,
+        "Softmax": 50.99333600000001,
+        "PV matmul": 5.77285183333334,
+        "Other": 0.0
+      }
+    }
+  },
+  "gemm_tflops": {
+    "00": {
+      "QK matmul": 1.776059980007801,
+      "PV matmul": 5.836440347517987
+    },
+    "01": {
+      "QK matmul": 32.3804947904031,
+      "PV matmul": 47.6156178748279
+    }
+  },
+  "softmax_share": {
+    "00": 0.18947371992664994,
+    "01": 0.7479201102568632
+  },
+  "measured_sgemm_tflops": 67.26020132569647,
+  "peaks": {
+    "fp32_tflops": 104.8,
+    "hbm_gbs": 1792.0,
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "source": "spec sheet"
+  }
+}
