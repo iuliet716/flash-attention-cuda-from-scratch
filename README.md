@@ -42,7 +42,7 @@ B = 00, H = 00, N = 00, d = 00
 | 09 | Double Buffering | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 
 #### Note
-The last two columns (TFLOPS, Speed vs. SDPA) show how each step progressively approaches PyTorch SDPA FlashAttention.  
+The last two columns show how each step progressively approaches PyTorch SDPA FlashAttention.  
 Steps 00–06 run in FP32, so part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.  
 Likewise, TFLOPS reflects each dtype's hardware peak — FP32 steps have a much lower ceiling than 07+ steps.
 
