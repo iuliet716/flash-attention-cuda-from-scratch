@@ -24,7 +24,7 @@ The implementation uses **tiling, online softmax, kernel fusion, and other techn
 ## Implementation
 
 We implement these techniques step by step and evaluate how each step affects performance.  
-Detailed implementation notes for each step are provided in `/docs` directory.
+Detailed implementation notes and benchmarks for each step are provided in `/docs` directory.
 
 ### Benchmark
 B=8, H=16, N=4096, d=64 (10 warm-ups, 50 iterations)  
