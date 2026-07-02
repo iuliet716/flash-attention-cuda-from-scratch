@@ -42,7 +42,7 @@ B = 00, H = 00, N = 00, d = 00
 | 09 | Double Buffering | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
 
 #### Caution
-The last column shows how close each step gets to PyTorch SDPA FlashAttention.
+The last column shows how close each step gets to PyTorch SDPA FlashAttention.  
 Note that Steps 00–06 run in FP32; part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.
 
 
