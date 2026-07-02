@@ -28,14 +28,21 @@ Detailed implementation notes for each step are provided in `/docs` directory.
 
 ### Benchmark
 B = 00, H = 00, N = 00, d = 00
-| Step | Technique | Time | Speedup vs. prev. | Speedup vs. Baseline | Performance vs. PyTorch SDPA FlashAttention (%) |
-|---|---|---:|---:|---:|---:|
-| 00 | Naive Standard Attention (Baseline) | 0.0 s | N/A | N/A | 0.0 % |
-| 01 | cuBLAS + Warp-reduction Softmax | 0.0 s | 0.0x | 0.0x | 0.0 % |
-| 02 | Online Softmax | 0.0 s | 0.0x | 0.0x | 0.0 % |
-| 03 | Naive Fused Attention (SRAM Tiling) | 0.0 s | 0.0x | 0.0x | 0.0 % |
-| 04 | Memory Access Optimization | 0.0 s | 0.0x | 0.0x | 0.0 % |
-| 05 | Data Type Optimization | 0.0 s | 0.0x | 0.0x | 0.0 % |
-| 06 | WMMA TensorCore | 0.0 s | 0.0x | 0.0x | 0.0 % |
+| Step | Technique | Latency | TFLOPS | Speedup vs. prev. | Speedup vs. Baseline | Speed vs. PyTorch SDPA FlashAttention (%) |
+|---|---|---:|---:|---:|---:|---:|
+| 00 | Naive Standard Attention (Baseline) | 0.0 ms | 0.0 | N/A | N/A | 0.0 % |
+| 01 | cuBLAS GEMM | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 02 | Warp-reduction Softmax | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 03 | Online Softmax | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 04 | Naive Fused Attention (SRAM Tiling) | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 05 | Coalescing + Vectorized Load | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 06 | Bank Conflict Avoidance (Swizzling) | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 07 | Half-Precision (FP16) | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 08 | WMMA TensorCore | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 09 | Double Buffering | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+
+#### Caution
+The last column shows how close each step gets to PyTorch SDPA FlashAttention.
+Note that Steps 00–06 run in FP32; part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.
 
 
