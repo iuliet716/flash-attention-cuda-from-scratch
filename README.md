@@ -28,21 +28,22 @@ Detailed implementation notes for each step are provided in `/docs` directory.
 
 ### Benchmark
 B = 00, H = 00, N = 00, d = 00
-| Step | Technique | Latency | TFLOPS | Speedup vs. prev. | Speedup vs. Baseline | Speed vs. PyTorch SDPA FlashAttention (%) |
+| Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS | Speed vs. PyTorch SDPA FlashAttention (%) |
 |---|---|---:|---:|---:|---:|---:|
-| 00 | Naive Standard Attention (Baseline) | 0.0 ms | 0.0 | N/A | N/A | 0.0 % |
-| 01 | cuBLAS GEMM | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 02 | Warp-reduction Softmax | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 03 | Online Softmax | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 04 | Naive Fused Attention (SRAM Tiling) | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 05 | Coalescing + Vectorized Load | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 06 | Bank Conflict Avoidance (Swizzling) | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 07 | Half-Precision (FP16) | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 08 | WMMA TensorCore | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
-| 09 | Double Buffering | 0.0 ms | 0.0 | 0.0x | 0.0x | 0.0 % |
+| 00 | Naive Standard Attention (Baseline) | 0.0 ms | N/A | N/A | 0.0 | 0.0 % |
+| 01 | cuBLAS GEMM | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 02 | Warp-reduction Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 03 | Online Softmax | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 04 | Naive Fused Attention (SRAM Tiling) | 0.0 ms |0.0x | 0.0x | 0.0 | 0.0 % |
+| 05 | Coalescing + Vectorized Load | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 06 | Bank Conflict Avoidance (Swizzling) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 07 | Half-Precision (FP16) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 08 | WMMA TensorCore | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
+| 09 | Double Buffering | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % |
 
-#### Caution
-The last column shows how close each step gets to PyTorch SDPA FlashAttention.  
-Note that Steps 00–06 run in FP32; part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.
+#### Note
+The last two columns (TFLOPS, Speed vs. SDPA) show how each step progressively approaches PyTorch SDPA FlashAttention.  
+Steps 00–06 run in FP32, so part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.  
+Likewise, TFLOPS reflects each dtype's hardware peak — FP32 steps have a much lower ceiling than FP16 TensorCore steps (07+).
 
 
