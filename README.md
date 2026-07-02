@@ -7,6 +7,8 @@ CUDA implementation of FlashAttention for learning
 ```bash
 $ source env.sh         # Run this command if you need the environment for RTX 5090
 $ python benchmark.py
+  # python benchmark.py --preset llm
+  # python benchmark.py -B 8 -H 16 -N 4096 -d 64
 ```
 
 ## What is FlashAttention
