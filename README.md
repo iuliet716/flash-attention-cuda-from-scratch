@@ -27,7 +27,7 @@ We implement these techniques step by step and evaluate how each step affects pe
 Detailed implementation notes for each step are provided in `/docs` directory.
 
 ### Benchmark
-B=8, H=16, N=4096, d=64 (10 warm-up, 50 iterations)  
+B=8, H=16, N=4096, d=64 (10 warm-ups, 50 iterations)  
 NVIDIA RTX 5090 32GB
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|
