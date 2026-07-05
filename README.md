@@ -39,7 +39,7 @@ B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)
 NVIDIA RTX 5090 32GB
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch matmul + softmax (%) | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|---:|
-| 00 | Naive Standard Attention (Baseline) | 287.232 ms | N/A | N/A | 1.9 | 14.6 % | 0.9 % |
+| 00 | [Naive Standard Attention (Baseline)](../docs/00_naive.md) | 287.232 ms | N/A | N/A | 1.9 | 14.6 % | 0.9 % |
 | 01 | cuBLAS GEMM | 73.695 ms | 3.90x | 3.90x | 7.5 | 56.8 % | 3.3 % |
 | 02 | Warp-reduction Softmax | 31.958 ms | 2.31x | 8.99x | 17.2 | 131.1 % | 7.7 % |
 | 03 | Online Softmax | 32.768 ms | 0.98x | 8.77x | 16.8 | 127.8 % | 7.5 % |
