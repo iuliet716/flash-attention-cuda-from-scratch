@@ -32,5 +32,5 @@ The gray line shows the ideal $O(N)$ I/O lower bound, not the compute complexity
 \*In FlashAttention literature, this is often referred to as HBM traffic.   
 On RTX 5090, which uses GDDR7 instead of HBM, We measure the same off-chip device-memory traffic.
 
-
-
+### To Do
+- [ ] analyze why qk is slowest despite least HBM traffic (uncoalesced K loads?)
