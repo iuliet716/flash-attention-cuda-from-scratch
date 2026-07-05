@@ -24,7 +24,7 @@ The kernels communicate through HBM:
 2. `S` (N×N) is re-read ×3 by `softmax_kernel` (max, sum, normalize)
 3. `S` (N×N) is read again by `naive_pv_nernel`
 
-Naive attention materializes N×N score/probability matrices, causing O(N²) off-chip memory traffic.  
+Naive attention materializes N×N score/probability matrices, causing $O(N²)$ off-chip memory traffic.  
 The gray line shows the ideal $O(N)$ I/O lower bound, not the compute complexity of attention.
 
 #### Note
