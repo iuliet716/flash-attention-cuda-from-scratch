@@ -10,6 +10,8 @@ Three separate kernels, with the intermediate `S = scale·QKᵀ` and `P = softma
 
 ## Measurements
 
+For a more detailed analysis, we use NVIDIA Nsight Compute (NCU).
+
 ### Kernel breakdown
 
 <img width="800" height="350" alt="image" src="assets/1_kernel_breakdown.png" />
