@@ -6,6 +6,7 @@
 
 ### `warp_softmax_kernel()`
 
+```CUDA
 __global__ void warp_softmax_kernel(
     float* __restrict__ S,
     int N,
@@ -47,5 +48,6 @@ __global__ void warp_softmax_kernel(
         row[j] *= inv_sum;
     }
 }
+```
 
 ## Measurements
