@@ -1,4 +1,4 @@
-# Step 0. Warp-reduction Softmax
+# Step 2. Warp-reduction Softmax
 
 ## What this step implements
 
