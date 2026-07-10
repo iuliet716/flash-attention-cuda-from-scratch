@@ -2,9 +2,17 @@
 
 ## What this step implements
 
+In this step, we replace the naive row-wise softmax kernel with a **warp-level reduction softmax** kernel.
 
+## What is Warp-level Reduction Softmax
+
+
+
+## Code
 
 ### `warp_softmax_kernel()`
+
+TEST
 
 ```CUDA
 __global__ void warp_softmax_kernel(
