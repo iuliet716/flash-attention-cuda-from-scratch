@@ -31,6 +31,8 @@ we can use strided batched GEMM to compute all of them with a single cuBLAS call
 This step focuses on replacing the naive CUDA matmul kernels with a simple optimized library baseline.  
 **More advanced APIs can be explored in later steps** when we introduce mixed precision, Tensor Cores, or more aggressive GEMM tuning.  
 
+## Code
+
 ### `gemm_qk`
 
 [NVIDIA Docs](https://docs.nvidia.com/cuda/cublas/#cublas-t-gemmstridedbatched) describe `cublasSgemmStridedBatched()`.  
