@@ -54,25 +54,20 @@ They skip both — values move register to register, the fastest storage on the 
 
 ### `warp_softmax_kernel()`
 
-TEST
+#### indexing
 
 ```cuda
-__global__ void warp_softmax_kernel(
-    float* __restrict__ S,
-    int N,
-    int total_rows)
-{
-    // one warp for softmax by row
-    // consecutive lanes read consecutive elements at each iteration,
-    // so accesses are coalesced (each lane strides by 32 across iterations)
     const int warps_per_block = blockDim.x / 32;
     const int warp = blockIdx.x * warps_per_block + threadIdx.x / 32;
     const int lane = threadIdx.x % 32;
-    if (warp >= total_rows) return;
+```
 
-    float* row = S + (size_t)warp * N;
+Each warp owns one row.  
+`warp` is the global warp index — which doubles as the row index — and lane (0–31) is the thread's position within the warp.  
 
-    // max by row: per-lane partial max, then warp reduction
+#### max reduction
+
+```cuda
     float max_val = -CUDART_INF_F;
     for (int j = lane; j < N; j += 32) {
         max_val = fmaxf(max_val, row[j]);
@@ -80,8 +75,14 @@ __global__ void warp_softmax_kernel(
     for (int offset = 16; offset > 0; offset >>= 1) {
         max_val = fmaxf(max_val, __shfl_xor_sync(0xffffffff, max_val, offset));
     }
+```
 
-    // exp(x - max) written in place, per-lane partial sum, then warp reduction
+Each lane scans a strided slice of the row (`lane, lane+32, …`) for a local max, then 5 butterfly shuffles merge the 32 partials.  
+After this, every lane holds the row max.
+
+#### exp + sum reduction
+
+```cuda
     float sum = 0.0f;
     for (int j = lane; j < N; j += 32) {
         float e = __expf(row[j] - max_val);
@@ -91,13 +92,9 @@ __global__ void warp_softmax_kernel(
     for (int offset = 16; offset > 0; offset >>= 1) {
         sum += __shfl_xor_sync(0xffffffff, sum, offset);
     }
-
-    // normalization
-    const float inv_sum = 1.0f / sum;
-    for (int j = lane; j < N; j += 32) {
-        row[j] *= inv_sum;
-    }
-}
 ```
+
+Each lane computes `exp(x − max)` for its slice, writes it back in place for the final pass to reuse, and accumulates a local sum.  
+The same butterfly pattern then reduces the partial sums.
 
 ## Measurements
