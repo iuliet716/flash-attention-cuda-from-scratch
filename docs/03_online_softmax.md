@@ -217,6 +217,8 @@ for (int j = lane; j < N; j += 32) {
 
 The score matrix is updated in place, so the original score values in `S` are replaced by the normalized probability matrix $P$.
 
+## Note
+
 Although the maximum and exponential sum are computed together online, a second memory pass is still required to write the final normalized values.  
 The kernel therefore avoids a separate maximum pass, **but it does not yet fuse softmax with the subsequent $PV$ multiplication**.  
 **This fusion will be introduced in the next step**.
@@ -224,9 +226,3 @@ The kernel therefore avoids a separate maximum pass, **but it does not yet fuse 
 In this step, **the row is not yet divided into explicit contiguous tiles**.  
 Instead, each lane computes a partial softmax state for its strided subset of the row, and these states are merged at the warp level.  
 **The next step extends this mechanism to explicit tile-wise processing**.
-
-
-
-
-
-
