@@ -37,6 +37,10 @@ We implement these techniques step by step and evaluate how each step affects pe
 ### Benchmark
 B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)  
 NVIDIA RTX 5090 32GB
+
+**Currently achieves ~70% of PyTorch SDPA FlashAttention speed.**  
+Further kernel optimizations are planned.
+
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch matmul + softmax (%) | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|---:|
 | 00 |[Naive Standard Attention (Baseline)](docs/00_naive.md) | 253.330 ms | N/A | N/A | 2.2 | 15.0 % | 1.0 % |
