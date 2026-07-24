@@ -10,13 +10,22 @@
 
 using namespace nvcuda;
 
-constexpr int BR = 16;     // Q rows per block (one wmma tile of rows)
-constexpr int BC = 64;     // K, V rows per tile (one wmma tile per warp)
-constexpr int WARPS = 4;   // warps per block
+constexpr int BR = 64;     // Q rows per block
+constexpr int BC = 32;     // K, V rows per tile
+constexpr int WARPS = 8;   // warps per block
 constexpr int STAGES = 2;  // double buffering
 constexpr int WMMA_M = 16;  // wmma tile: 16 x 16 x 16
 constexpr int WMMA_N = 16;
 constexpr int WMMA_K = 16;
+
+// Warp grid over the S tile: RGROUPS x CGROUPS 16 x 16 wmma tiles,
+// exactly one tile per warp. These relations are what BR, BC and WARPS
+// must satisfy -- they are not independently tunable.
+constexpr int RGROUPS = BR / WMMA_M;       // 4 row groups
+constexpr int CGROUPS = BC / WMMA_N;       // 2 col groups
+constexpr int ROWS_PER_WARP = BR / WARPS;  // softmax rows per warp (8)
+static_assert(RGROUPS * CGROUPS == WARPS, "one QK^T tile per warp");
+static_assert(BR % WARPS == 0, "softmax rows split evenly across warps");
 
 // Extra halves appended to each Q/K/V tile row. 16 halves = 32 bytes:
 // keeps every wmma fragment pointer 32-byte aligned while shifting
@@ -32,17 +41,26 @@ __global__ void fused_attention_kernel(
     int d,
     float scale)
 {
-    // Step 08 alternates load and compute phases: while the K/V tile is
-    // being fetched from HBM, the tensor cores sit idle.
+    // Step 08 ran BR = 16 rows per block. Such small blocks left 2-3
+    // blocks resident per SM, and the hardware already overlapped one
+    // block's loads with another block's compute -- so naive double
+    // buffering (doubling SRAM per block) only reduced the number of
+    // resident blocks and made things slower.
     //
-    // This step overlaps the two with double buffering. K/V get two SRAM
-    // buffers, and cp.async (__pipeline_memcpy_async) copies HBM -> SRAM
-    // directly, without staging through registers, so the copy proceeds in
-    // the background while the same threads run wmma on the other buffer:
+    // This step scales the block up so that ONE block owns the SM by
+    // design (8 warps, 59-99 KB of SRAM):
+    //   - BR 16 -> 64: K/V are re-read from HBM once per Q block, so the
+    //     re-read traffic drops 4x
+    //   - with a single resident block there is no cross-block overlap to
+    //     lose: double-buffered cp.async loads become the only mechanism
+    //     that keeps tensor cores fed while the next tile is in flight
+    //   - BC 64 -> 32 keeps the double-buffered layout inside the 99 KB
+    //     per-block SRAM limit at d = 128
     //
-    //   prefetch tile 0 into buffer 0
-    //   loop t:  issue async load of tile t+1 into buffer (t+1) % 2
-    //            wait for tile t, compute on buffer t % 2
+    // Warp layout (8 warps):
+    //   QK^T   : 4 x 2 grid of 16 x 16 tiles, one tile per warp
+    //   softmax: warp w owns rows [8w, 8w + 8) of S
+    //   PV     : warp (r, c) owns O rows [16r, 16r + 16), cols [c*d/2, +d/2)
     //
     // SRAM layout (FP32 first, then FP16):
     //   float Osm[BR][d]       running output accumulator
@@ -66,6 +84,8 @@ __global__ void fused_attention_kernel(
     const int tid = threadIdx.x;
     const int warp = tid / 32;
     const int lane = tid % 32;
+    const int warp_r = warp / CGROUPS;  // this warp's S row group
+    const int warp_c = warp % CGROUPS;  // this warp's S col group
     const int batch = blockIdx.y;
     const int q_base = blockIdx.x * BR;
 
@@ -123,8 +143,10 @@ __global__ void fused_attention_kernel(
         l_sm[tid] = 0.0f;
     }
 
-    const int dw = d / WARPS;   // O columns owned by each warp
-    const int c0 = warp * dw;   // first O column of this warp
+    // this warp's O region for the PV phase
+    const int dw = d / CGROUPS;      // O columns per warp
+    const int r0 = warp_r * WMMA_M;  // first O row of this warp
+    const int c0 = warp_c * dw;      // first O column of this warp
 
     // prologue: prefetch the first tile
     load_kv_async(0, 0);
@@ -151,7 +173,7 @@ __global__ void fused_attention_kernel(
         const __half* Vst = Vs + stage * BC * ldh;
 
         // S tile = Q_tile * K_tile^T on tensor cores.
-        // Each warp accumulates its 16 x 16 block over d in steps of 16.
+        // One 16 x 16 block per warp, accumulated over d in steps of 16.
         {
             wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> s_frag;
             wmma::fill_fragment(s_frag, 0.0f);
@@ -161,17 +183,19 @@ __global__ void fused_attention_kernel(
                 // reading row-major K as col-major yields K^T: B(k, n) = K[n][k]
                 wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half,
                                wmma::col_major> b_frag;
-                wmma::load_matrix_sync(a_frag, Qs + k, ldh);
-                wmma::load_matrix_sync(b_frag, Kst + (warp * WMMA_N) * ldh + k, ldh);
+                wmma::load_matrix_sync(a_frag, Qs + r0 * ldh + k, ldh);
+                wmma::load_matrix_sync(b_frag, Kst + (warp_c * WMMA_N) * ldh + k, ldh);
                 wmma::mma_sync(s_frag, a_frag, b_frag, s_frag);
             }
-            wmma::store_matrix_sync(Ssm + warp * WMMA_N, s_frag, BC, wmma::mem_row_major);
+            wmma::store_matrix_sync(Ssm + r0 * BC + warp_c * WMMA_N, s_frag, BC,
+                                    wmma::mem_row_major);
         }
         __syncthreads();
 
-        // online softmax over the BR x BC score tile: warp 0, lane r owns row r
-        if (warp == 0 && lane < BR) {
-            const int r = lane;
+        // online softmax over the BR x BC score tile.
+        // every warp owns ROWS_PER_WARP rows: lane r' handles one full row.
+        if (lane < ROWS_PER_WARP) {
+            const int r = warp * ROWS_PER_WARP + lane;
             float m_tile = -FLT_MAX;
             for (int c = 0; c < BC; ++c) {
                 if (tile + c < N) m_tile = fmaxf(m_tile, Ssm[r * BC + c] * scale);
@@ -193,9 +217,9 @@ __global__ void fused_attention_kernel(
         }
         __syncthreads();
 
-        // rescale this warp's O columns by alpha (per-row scalar code) ...
-        for (int idx = lane; idx < BR * dw; idx += 32) {
-            const int r = idx / dw;
+        // rescale this warp's O region by alpha (per-row scalar code) ...
+        for (int idx = lane; idx < WMMA_M * dw; idx += 32) {
+            const int r = r0 + idx / dw;
             const int c = c0 + idx % dw;
             Osm[r * d + c] *= a_sm[r];
         }
@@ -204,17 +228,17 @@ __global__ void fused_attention_kernel(
         // ... then accumulate P * V_tile into it on tensor cores
         for (int j = 0; j < dw; j += WMMA_N) {
             wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> o_frag;
-            wmma::load_matrix_sync(o_frag, Osm + c0 + j, d, wmma::mem_row_major);
+            wmma::load_matrix_sync(o_frag, Osm + r0 * d + c0 + j, d, wmma::mem_row_major);
             for (int k = 0; k < BC; k += WMMA_K) {
                 wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half,
                                wmma::row_major> p_frag;
                 wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half,
                                wmma::row_major> v_frag;
-                wmma::load_matrix_sync(p_frag, Ps + k, BC);
+                wmma::load_matrix_sync(p_frag, Ps + r0 * BC + k, BC);
                 wmma::load_matrix_sync(v_frag, Vst + k * ldh + c0 + j, ldh);
                 wmma::mma_sync(o_frag, p_frag, v_frag, o_frag);
             }
-            wmma::store_matrix_sync(Osm + c0 + j, o_frag, d, wmma::mem_row_major);
+            wmma::store_matrix_sync(Osm + r0 * d + c0 + j, o_frag, d, wmma::mem_row_major);
         }
         __syncthreads();
     }
