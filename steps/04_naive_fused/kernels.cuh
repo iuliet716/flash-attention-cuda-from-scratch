@@ -2,8 +2,7 @@
 
 #include <cuda_runtime.h>
 
-// Maximum head dimension supported by the fused kernel
-// (per-row output accumulator lives in registers: D_MAX / 32 floats per lane).
+// maximum head dimension
 constexpr int FUSED_D_MAX = 128;
 
 void launch_fused_attention(

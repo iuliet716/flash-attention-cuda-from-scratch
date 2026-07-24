@@ -32,10 +32,9 @@ cublasStatus_t gemm_qk(
         batch_count);
 }
 
-// merge two (max, sum) softmax states:
-// m = max(m_a, m_b)
-// s = s_a * exp(m_a - m) + s_b * exp(m_b - m)
-// the same rule updates a state with one new element x by treating it as (x, 1)
+// merge two online-softmax states (m, s):
+// m_new = max(m_a, m_b)
+// s_new = s_a * exp(m_a - m_new) + s_b * exp(m_b - m_new)
 __global__ void online_softmax_kernel(
     float* __restrict__ S,
     int N,
@@ -51,12 +50,13 @@ __global__ void online_softmax_kernel(
 
     float* row = S + (size_t)warp * N;
 
-    // single pass: update (max, sum) together, rescaling the running sum
-    // whenever a new max appears -> no separate max pass over the row.
-    // branch on the rare new-max case: the common path `s += exp(x - m)`
-    // keeps the loop-carried dependency to one add, so exp pipelines.
-    // init with -FLT_MAX, not -inf: merging two empty states with -inf
-    // would produce exp(-inf - (-inf)) = NaN.
+    // compute the max `m` and normalized exponential sum `s` in one pass.
+    // for each value `x` in the row, update `s` based on whether it is a new maximum.
+    // for x <= m, no rescaling is needed; simply add its contribution:
+    //   s += exp(x - m)
+    // for a new maximum `x`, rescale the accumulated `s` to the new maximum, then add the contribution of `x`:
+    //   s = s * exp(m - x) + 1
+    // use -FLT_MAX to avoid NaN from exp(-inf - (-inf)) when merging empty states.
     float m = -FLT_MAX;
     float s = 0.0f;
     for (int j = lane; j < N; j += 32) {
@@ -69,7 +69,7 @@ __global__ void online_softmax_kernel(
         }
     }
 
-    // warp reduction: merge per-lane (max, sum) states
+    // merge per-lane (max, sum) states across the warp.
     for (int offset = 16; offset > 0; offset >>= 1) {
         const float m_other = __shfl_xor_sync(0xffffffff, m, offset);
         const float s_other = __shfl_xor_sync(0xffffffff, s, offset);

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Benchmark
 Usage:
     python benchmark.py                       # default shape
