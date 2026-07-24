@@ -10,7 +10,7 @@
 
 constexpr int WARPS = 4;        // warps per block, one 16-row group each
 constexpr int BR = WARPS * 16;  // Q rows per block (64)
-constexpr int BC = 32;          // K, V rows per tile
+constexpr int BC = 64;          // K, V rows per tile
 constexpr int STAGES = 2;       // double buffering
 constexpr int SKEW = 16;        // halves of padding per K/V smem row
 
@@ -305,9 +305,14 @@ static void launch_impl(
 {
     const int threads = WARPS * 32;
     const dim3 grid((N + BR - 1) / BR, batch_count);
-    // K/V double buffer only: 20 KB (d=64) / 36 KB (d=128) -- back under
-    // the 48 KB default, several blocks per SM again
+    // SRAM is the K/V double buffer only: 40 KB (d=64) / 72 KB (d=128)
     const size_t smem_bytes = (size_t)STAGES * 2 * BC * (D + SKEW) * sizeof(__half);
+    if (smem_bytes > 48 * 1024) {
+        // beyond the 48 KB default the limit must be raised explicitly
+        cudaFuncSetAttribute(fused_attention_kernel<D>,
+                             cudaFuncAttributeMaxDynamicSharedMemorySize,
+                             (int)smem_bytes);
+    }
     fused_attention_kernel<D><<<grid, threads, smem_bytes, stream>>>(
         dQ, dK, dV, dO, N, scale);
 }
