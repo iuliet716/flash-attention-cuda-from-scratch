@@ -16,7 +16,7 @@ constexpr int WMMA_M = 16;  // wmma tile: 16 x 16 x 16
 constexpr int WMMA_N = 16;
 constexpr int WMMA_K = 16;
 
-// 32-byte row padding for WMMA alignment and bank conflicts
+// 32-byte row padding for WMMA alignment and bank-conflict reduction
 constexpr int SKEW = 16;
 
 __global__ void fused_attention_kernel(
@@ -143,7 +143,7 @@ __global__ void fused_attention_kernel(
         }
         __syncthreads();
 
-        // rescale factor for the accumulated output
+        // rescale the accumulated output
         for (int idx = lane; idx < BR * dw; idx += 32) {
             const int r = idx / dw;
             const int c = c0 + idx % dw;
