@@ -39,22 +39,21 @@ B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)
 NVIDIA RTX 5090 32GB
 | Step | Technique | Latency | Speedup vs. prev. | Speedup vs. Baseline | TFLOPS* | Speed vs. PyTorch matmul + softmax (%) | Speed vs. PyTorch SDPA FlashAttention* (%) |
 |---|---|---:|---:|---:|---:|---:|---:|
-| 00 | [Naive Standard Attention (Baseline)](docs/00_naive.md) | 287.232 ms | N/A | N/A | 1.9 | 14.6 % | 0.9 % |
-| 01 | cuBLAS GEMM | 73.695 ms | 3.90x | 3.90x | 7.5 | 56.8 % | 3.3 % |
-| 02 | Warp-reduction Softmax | 31.958 ms | 2.31x | 8.99x | 17.2 | 131.1 % | 7.7 % |
-| 03 | Online Softmax | 32.768 ms | 0.98x | 8.77x | 16.8 | 127.8 % | 7.5 % |
-| 04 | Naive Fused Attention (SRAM Tiling) | 328.855 ms | 0.09x | 0.77x | 1.7 | 11.5 % | 0.7 % |
-| 05 | Coalescing + Vectorized Load | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
-| 06 | Bank Conflict Avoidance (Swizzling) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
-| 07 | Half-Precision (FP16) | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
-| 08 | WMMA TensorCore | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
-| 09 | Double Buffering | 0.0 ms | 0.0x | 0.0x | 0.0 | 0.0 % | 0.0 % |
-| -- | PyTorch matmul + softmax | 41.887 ms | N/A | 6.86x | 13.1 | 100.0 % | 5.9 % |
-| -- | PyTorch SDPA FlashAttention | 2.458 ms | N/A | 116.83x | 223.6 | 1704.1 % | 100.0 % |
+| 00 |[Naive Standard Attention (Baseline)](docs/00_naive.md) | 253.330 ms | N/A | N/A | 2.2 | 15.0 % | 1.0 % |
+| 01 | cuBLAS GEMM | 64.719 ms | 3.91x | 3.91x | 8.5 | 58.8 % | 3.8 % |
+| 02 | Warp-reduction Softmax | 28.816 ms | 2.25x | 8.79x | 19.1 | 132.0 % | 8.6 % |
+| 03 | Online Softmax | 30.135 ms | 0.96x | 8.41x | 18.2 | 126.2 % | 8.2 % |
+| 04 | Naive Fused Attention (SRAM Tiling) | 327.255 ms | 0.09x | 0.77x | 1.7 | 11.6 % | 0.8 % |
+| 05 | Coalescing + Vectorized Load | 119.058 ms | 2.75x | 2.13x | 4.6 | 31.9 % | 2.1 % |
+| 06 | Bank Conflict Avoidance (Swizzling) | 63.985 ms | 1.86x | 3.96x | 8.6 | 59.4 % | 3.9 % |
+| 07 | Half-Precision (FP16) | 57.849 ms | 1.11x | 4.38x | 9.5 | 65.7 % | 4.3 % |
+| 08 | WMMA TensorCore | 38.430 ms | 1.51x | 6.59x | 14.3 | 98.9 % | 6.5 % |
+| 09 | Double Buffering | 23.896 ms | 1.61x | 10.60x | 23.0 | 159.1 % | 10.4 % |
+| 10 | Register-Resident Accumulators | 3.566 ms | 6.70x | 71.04x | 154.2 | 1066.3 % | 69.6 % |
+| -- | PyTorch matmul + softmax | 38.025 ms | N/A | 6.66x | 14.5 | 100.0 % | 6.5 % |
+| -- | PyTorch SDPA FlashAttention | 2.482 ms | N/A | 102.08x | 221.5 | 1532.2 % | 100.0 % |
 
 #### Note
 - The last two columns show how each step progressively approaches the two PyTorch references.
 - *Steps 00–06 run in FP32, so part of the gap vs. SDPA (FP16) is inherent to precision, not kernel quality.
 - *Likewise, TFLOPS reflects each dtype's hardware peak — FP32 steps have a much lower ceiling than 07+ steps.
-
-
