@@ -31,6 +31,7 @@ TECHNIQUES = {
     "08": "WMMA TensorCore",
     "09": "Double Buffering",
     "10": "Register-Resident Accumulators (PTX mma.sync)",
+    "11": "Causal Masking (Work Skipping)",
 }
 
 
@@ -95,6 +96,19 @@ def reference_attention(q, k, v):
     """FP32 reference: scale * QK^T -> softmax -> PV."""
     scale = 1.0 / (q.shape[-1] ** 0.5)
     scores = torch.matmul(q.float(), k.float().transpose(-2, -1)) * scale
+    probs = torch.softmax(scores, dim=-1)
+    return torch.matmul(probs, v.float())
+
+
+def reference_attention_causal(q, k, v):
+    """FP32 causal reference: row i attends only to columns j <= i."""
+    scale = 1.0 / (q.shape[-1] ** 0.5)
+    scores = torch.matmul(q.float(), k.float().transpose(-2, -1)) * scale
+    n = scores.shape[-1]
+    mask = torch.triu(
+        torch.ones(n, n, dtype=torch.bool, device=scores.device), diagonal=1
+    )
+    scores.masked_fill_(mask, float("-inf"))
     probs = torch.softmax(scores, dim=-1)
     return torch.matmul(probs, v.float())
 
@@ -185,6 +199,68 @@ def run_shape(modules, label, B, H, N, d, args, device):
         ("PyTorch SDPA FlashAttention", sdpa_ms),
     ]
     print_table(results, eager_ms, sdpa_ms, refs, B, H, N, d, label)
+    run_causal_section(modules, results, q, k, v, args, B, H, N, d)
+
+
+def run_causal_section(modules, results, q, k, v, args, B, H, N, d):
+    """Benchmark causal-capable modules against causal references.
+
+    Causal attention only computes the lower triangle of the score
+    matrix, so its FLOPs (and therefore TFLOPS) are counted as half of
+    full attention.
+    """
+    causal = []
+    for name, module in modules:
+        if module is None:
+            continue
+        try:
+            out = module.forward(q, k, v, True)
+        except TypeError:  # module has no is_causal argument
+            continue
+        causal.append((name, module, out))
+    if not causal:
+        return
+
+    ref = reference_attention_causal(q, k, v)
+    noncausal_ms = {name: t for name, t, _ in results if t is not None}
+
+    # causal SDPA FlashAttention reference (FP16, flash backend)
+    qh, kh, vh = (t.half() for t in (q, k, v))
+    with torch.nn.attention.sdpa_kernel(
+        torch.nn.attention.SDPBackend.FLASH_ATTENTION
+    ):
+        sdpa_ms = benchmark(
+            lambda a, b, c: F.scaled_dot_product_attention(a, b, c, is_causal=True),
+            qh, kh, vh, args.warmup, args.iters,
+        )
+
+    print("\nCausal benchmark  (*FLOPs counted as half of full attention)\n")
+    print(
+        "| Step | Technique | Latency | TFLOPS* "
+        "| Speedup vs. own non-causal | Speed vs. SDPA causal (%) |"
+    )
+    print("|---|---|---:|---:|---:|---:|")
+    for name, module, out in causal:
+        ok = torch.allclose(out.float(), ref, rtol=args.rtol, atol=args.atol)
+        max_err = (out.float() - ref).abs().max().item()
+        t_ms = benchmark(
+            lambda a, b, c: module.forward(a, b, c, True),
+            q, k, v, args.warmup, args.iters,
+        )
+        tf = tflops(B, H, N, d, t_ms) / 2
+        sp_self = (
+            f"{noncausal_ms[name] / t_ms:.2f}x" if name in noncausal_ms else "N/A"
+        )
+        status = "" if ok else f" FAIL (max_err={max_err:.2e})"
+        print(
+            f"| {step_prefix(name)} | {technique(name)}{status} | {fmt_time(t_ms)} "
+            f"| {tf:.1f} | {sp_self} | {sdpa_ms / t_ms * 100:.1f} % |"
+        )
+    tf_sdpa = tflops(B, H, N, d, sdpa_ms) / 2
+    print(
+        f"| -- | PyTorch SDPA (FP16 flash, causal) | {fmt_time(sdpa_ms)} "
+        f"| {tf_sdpa:.1f} | N/A | 100.0 % |"
+    )
 
 
 def main():
