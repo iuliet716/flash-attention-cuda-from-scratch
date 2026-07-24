@@ -16,7 +16,7 @@ constexpr int WMMA_M = 16;  // wmma tile: 16 x 16 x 16
 constexpr int WMMA_N = 16;
 constexpr int WMMA_K = 16;
 
-// 32-byte padding per row to keep WMMA loads aligned and reduce bank conflicts
+// 32-byte row padding for WMMA alignment and bank conflicts
 constexpr int SKEW = 16;
 
 __global__ void fused_attention_kernel(
@@ -97,7 +97,7 @@ __global__ void fused_attention_kernel(
         }
         __syncthreads();
 
-        // S = Q_tile * K_tile^T
+        // S = QK^T
         // each warp computes a 16 x 16 block, accumulating over d
         {
             wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> s_frag;
@@ -151,7 +151,7 @@ __global__ void fused_attention_kernel(
         }
         __syncwarp();
 
-        // add the current P * V contribution
+        // add the current PV contribution
         for (int j = 0; j < dw; j += WMMA_N) {
             wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> o_frag;
             wmma::load_matrix_sync(o_frag, Osm + c0 + j, d, wmma::mem_row_major);
