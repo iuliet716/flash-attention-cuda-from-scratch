@@ -30,7 +30,7 @@ TECHNIQUES = {
     "07": "Half-Precision (FP16)",
     "08": "WMMA TensorCore",
     "09": "Double Buffering",
-    "10": "mma.sync + Register Accumulators",
+    "10": "Register-Resident Accumulators (PTX mma.sync)",
 }
 
 
