@@ -49,7 +49,7 @@ NVIDIA RTX 5090 32GB
 | 07 | Half-Precision (FP16) | 57.849 ms | 1.11x | 4.38x | 9.5 | 65.7 % | 4.3 % |
 | 08 | WMMA TensorCore | 38.430 ms | 1.51x | 6.59x | 14.3 | 98.9 % | 6.5 % |
 | 09 | Double Buffering | 23.896 ms | 1.61x | 10.60x | 23.0 | 159.1 % | 10.4 % |
-| 10 | Register-Resident Accumulators | 3.566 ms | 6.70x | 71.04x | 154.2 | 1066.3 % | 69.6 % |
+| 10 | Register-Resident Accumulators | **3.566 ms** | 6.70x | **71.04x** | **154.2** | 1066.3 % | **69.6 %** |
 | -- | PyTorch matmul + softmax | 38.025 ms | N/A | 6.66x | 14.5 | 100.0 % | 6.5 % |
 | -- | PyTorch SDPA FlashAttention | 2.482 ms | N/A | 102.08x | 221.5 | 1532.2 % | 100.0 % |
 
