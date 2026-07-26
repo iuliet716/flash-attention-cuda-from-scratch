@@ -2,7 +2,7 @@
 
 ## What this step implements
 
-In this step, we replace the kernels for $QK^\top$ and $PV$ matrixs multiplication with cuBLAS library calls.  
+In this step, we replace the kernels for $QK^\top$ and $PV$ matrix multiplication with cuBLAS library calls.  
 
 ### What is cuBLAS
 
