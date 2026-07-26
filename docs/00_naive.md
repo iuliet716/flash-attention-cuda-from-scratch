@@ -47,7 +47,7 @@ naive_softmax_kernel<<<blocks, threads, 0, stream>>>(dS, N, total_rows);
 
 ### `naive_pv_kernel`
 
-Calculate $QK^\top$.  
+Calculate $PV$.  
 
 A **(32×8) thread block** maps each warp to **32 contiguous output dimensions** of one row, enabling **coalesced memory access**.  
 
