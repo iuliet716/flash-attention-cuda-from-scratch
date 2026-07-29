@@ -55,7 +55,7 @@ B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)
 
 ### Track A: Unfused kernel
 
-| Step | Technique | dtype | Latency | Speedup vs. prev. | TFLOPS |
+| Step | Technique | dtype | Latency | vs. prev. | TFLOPS |
 |---|---|---|---|---|---|
 | 00 | Naive Standard Attention | FP32 | 253.330 ms | - | 2.2 |
 | 01 | CuBLAS GEMM | FP32 | 64.719 ms | 3.91x | 8.5 |
@@ -64,7 +64,7 @@ B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)
 
 ### Track B: Fused FlashAttention Kernel
 
-| Step | Technique | dtype | Latency | Speedup vs. prev. | TFLOPS | % SDPA |
+| Step | Technique | dtype | Latency | vs. prev. | TFLOPS | % SDPA |
 |---|---|---|---|---|---|---|
 | 04 | Naive Fused Attention (SRAM Tiling) | FP32 | 327.255 ms | 0.09x | 1.7 | 0.8 % |
 | 05 | Coalescing + Vectorized Load | FP32 | 119.058 ms | 2.75x | 4.6 | 2.1 % |
