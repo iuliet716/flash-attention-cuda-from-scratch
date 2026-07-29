@@ -53,7 +53,7 @@ B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)
 | PyTorch matmul + softmax | FP32 | 38.025 ms | 14.5 |
 | PyTorch SDPA FlashAttention | FP16 | 2.482 ms | 221.5 |
 
-### Unfused kernel
+### Track A: Unfused kernel
 
 | Step | Technique | dtype | Latency | Speedup vs. prev. | TFLOPS |
 |---|---|---|---|---|---|
@@ -62,7 +62,7 @@ B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)
 | 02 | Warp-reduction Softmax | FP32 | 28.816 ms | 2.25x | 19.1 |
 | 03 | Online Softmax | FP32 | 30.135 ms | 0.96x | 18.2 |
 
-### Fused FlashAttention Kernel
+### Track B: Fused FlashAttention Kernel
 
 | Step | Technique | dtype | Latency | Speedup vs. prev. | TFLOPS | % SDPA |
 |---|---|---|---|---|---|---|
