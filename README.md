@@ -36,7 +36,7 @@ We implement these techniques step by step and evaluate how each step affects pe
 
 ## Benchmark
 
-**Currently achieves ~70% of PyTorch SDPA FlashAttention speed.**  
+**Currently achieves ~77% of PyTorch SDPA FlashAttention speed.**  
 Further kernel optimizations are planned.
 
 ### Environment
@@ -45,31 +45,32 @@ NVIDIA RTX 5090 32GB
 `PyTorch 2.7.0`, `CUDA 12.8`  
 
 B=8, H=16, N=4096, d=64 (10 warm-ups, median value from 50 iterations)  
+`fast_math=True`, `flush_l2=False`  
 
 ### References
 
 | Reference | dtype | Latency | TFLOPS |
 |---|---|---|---|
-| PyTorch matmul + softmax | FP32 | 38.025 ms | 14.5 |
-| PyTorch SDPA FlashAttention | FP16 | 2.482 ms | 221.5 |
+| PyTorch matmul + softmax | FP32 | 37.693 ms | 14.6 |
+| PyTorch SDPA FlashAttention | FP16 | 2.422 ms | 227.0 |
 
 ### Track A: Unfused kernel
 
 | Step | Technique | dtype | Latency | vs. prev. | TFLOPS |
 |---|---|---|---|---|---|
-| 00 | Naive Standard Attention | FP32 | 253.330 ms | - | 2.2 |
-| 01 | CuBLAS GEMM | FP32 | 64.719 ms | 3.91x | 8.5 |
-| 02 | Warp-reduction Softmax | FP32 | 28.816 ms | 2.25x | 19.1 |
-| 03 | Online Softmax | FP32 | 30.135 ms | 0.96x | 18.2 |
+| 00 | Naive Standard Attention | FP32 | 253.136 ms | - | 2.2 |
+| 01 | CuBLAS GEMM | FP32 | 64.376 ms | 3.93x | 8.5 |
+| 02 | Warp-reduction Softmax | FP32 | 28.690 ms | 2.24x | 19.2 |
+| 03 | Online Softmax | FP32 | 30.071 ms | 0.95x | 18.3 |
 
 ### Track B: Fused FlashAttention Kernel
 
 | Step | Technique | dtype | Latency | vs. prev. | TFLOPS | % SDPA |
 |---|---|---|---|---|---|---|
-| 04 | Naive Fused Attention (SRAM Tiling) | FP32 | 327.255 ms | 0.09x | 1.7 | 0.8 % |
-| 05 | Coalescing + Vectorized Load | FP32 | 119.058 ms | 2.75x | 4.6 | 2.1 % |
-| 06 | Bank Conflict Avoidance (Swizzling) | FP32 | 63.985 ms | 1.86x | 8.6 | 3.9 % |
-| 07 | Half-Precision (FP16) | FP16 | 57.849 ms | 1.11x | 9.5 | 4.3 % |
-| 08 | WMMA TensorCore | FP16 | 38.430 ms | 1.51x | 14.3 | 6.5 % |
-| 09 | Double Buffering | FP16 | 23.896 ms | 1.61x | 23.0 | 10.4 % |
-| 10 | Register-Resident Accumulators | FP16 | **3.566 ms** | 6.70x | **154.2** | **69.6 %** |
+| 04 | Naive Fused Attention (SRAM Tiling) | FP32 | 326.611 ms | 0.09x | 1.7 | 0.7 % |
+| 05 | Coalescing + Vectorized Load | FP32 | 120.939 ms | 2.70x | 4.5 | 2.0 % |
+| 06 | Bank Conflict Avoidance (Swizzling) | FP32 | 64.736 ms | 1.87x | 8.5 | 3.9 % |
+| 07 | Half-Precision (FP16) | FP16 | 57.156 ms | 1.13x | 9.6 | 4.4 % |
+| 08 | WMMA TensorCore | FP16 | 37.782 ms | 1.51x | 14.6 | 6.5 % |
+| 09 | Double Buffering | FP16 | 23.542 ms | 1.60x | 23.4 | 10.5 % |
+| 10 | Register-Resident Accumulators | FP16 | **3.273 ms** | 7.19x | **168.0** | **76.8 %** |

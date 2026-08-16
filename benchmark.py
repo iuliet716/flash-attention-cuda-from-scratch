@@ -248,6 +248,17 @@ class Timing:
 
     @property
     def spread_pct(self):
+        """Measured but deliberately not printed in the results table.
+
+        Under WSL2 the Windows display driver preempts the GPU on a ~16.6 ms
+        (60 Hz) wall-clock period, costing ~1.5 ms each time. PyTorch SDPA
+        takes the same hit, so it is the machine and not the kernel. Because
+        (max - min) is an extreme-value statistic, any run longer than one
+        refresh period is guaranteed to catch a preemption, and the stolen
+        time is roughly constant in absolute terms -- so this number grows as
+        the kernels get faster and reads as a regression when it is the
+        opposite. The median is what the table reports instead.
+        """
         if self.median == 0.0:
             return 0.0
         return (self.maximum - self.minimum) / self.median * 100.0
@@ -338,10 +349,10 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
         f"fast_math={fast_math}, flush_l2={flush_l2}\n"
     )
     print(
-        "| Step | dtype | Correctness | Latency | Spread | TFLOPS | "
+        "| Step | dtype | Correctness | Latency | TFLOPS | "
         "vs. prev. | % SDPA |"
     )
-    print("|---|---|---:|---:|---:|---:|---:|---:|")
+    print("|---|---|---:|---:|---:|---:|---:|")
 
     previous = None
 
@@ -354,7 +365,6 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
         print(
             f"| {result.name} | {result.dtype} | {status} | "
             f"{result.timing.median:.3f} ms | "
-            f"{result.timing.spread_pct:.1f}% | "
             f"{tflops(*shape, result.timing.median):.1f} | "
             f"{format_vs_prev(result, previous)} | "
             f"{result.sdpa_timing.median / result.timing.median * 100:.1f}% |"
@@ -367,8 +377,7 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
         "after each step,\nso both sides see the same clock and thermal state. "
         "FP32 steps are still compared\nagainst an FP16 baseline. "
         "`vs. prev.` is blank across track, dtype, and skipped-step "
-        "boundaries.\n`Spread` is (max - min) / median over the timed "
-        "iterations."
+        "boundaries."
     )
 
     print("\nReferences (single measurement, taken after the steps above)\n")
