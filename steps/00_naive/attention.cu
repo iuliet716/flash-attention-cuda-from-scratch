@@ -38,7 +38,7 @@ torch::Tensor attention_forward(
     auto out = torch::empty({B, H, N, d}, options);
 
     c10::cuda::CUDAGuard device_guard(q_contig.device());
-    auto stream = at::cuda::getDefaultCUDAStream();
+    auto stream = at::cuda::getCurrentCUDAStream();
 
     const float* dQ = q_contig.data_ptr<float>();
     const float* dK = k_contig.data_ptr<float>();

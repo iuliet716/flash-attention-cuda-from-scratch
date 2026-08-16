@@ -20,6 +20,25 @@ static void checkCublas(cublasStatus_t s, const char* msg) {
     }
 }
 
+class Fp32MathModeGuard {
+public:
+    explicit Fp32MathModeGuard(cublasHandle_t handle) : handle_(handle) {
+        checkCublas(cublasGetMathMode(handle_, &previous_), "cublasGetMathMode");
+        checkCublas(cublasSetMathMode(handle_, CUBLAS_DEFAULT_MATH), "cublasSetMathMode");
+    }
+
+    ~Fp32MathModeGuard() {
+        cublasSetMathMode(handle_, previous_);
+    }
+
+    Fp32MathModeGuard(const Fp32MathModeGuard&) = delete;
+    Fp32MathModeGuard& operator=(const Fp32MathModeGuard&) = delete;
+
+private:
+    cublasHandle_t handle_;
+    cublasMath_t previous_;
+};
+
 torch::Tensor attention_forward(
     const torch::Tensor& q,
     const torch::Tensor& k,
@@ -48,6 +67,7 @@ torch::Tensor attention_forward(
     auto stream = at::cuda::getCurrentCUDAStream();
     cublasHandle_t handle = at::cuda::getCurrentCUDABlasHandle();
     checkCublas(cublasSetStream(handle, stream.stream()), "cublasSetStream");
+    Fp32MathModeGuard math_mode_guard(handle);
 
     const float* dQ = q_contig.data_ptr<float>();
     const float* dK = k_contig.data_ptr<float>();
