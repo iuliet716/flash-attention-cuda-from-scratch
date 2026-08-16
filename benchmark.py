@@ -4,7 +4,7 @@ Examples:
     python benchmark.py
     python benchmark.py --preset small
     python benchmark.py -B 8 -H 16 -N 4096 -d 64
-    python benchmark.py --flush-l2 --fast-math
+    python benchmark.py --flush-l2 --no-fast-math
 """
 
 import argparse
@@ -62,15 +62,12 @@ def parse_args():
     parser.add_argument("--iters", type=int, default=50)
     parser.add_argument(
         "--fast-math",
-        action="store_true",
-        help="compile the custom kernels with --use_fast_math (off by default: "
-             "the cuBLAS/SDPA baselines are prebuilt without it)",
+        action=argparse.BooleanOptionalAction,
+        default=True,
     )
     parser.add_argument(
         "--flush-l2",
         action="store_true",
-        help="evict L2 between timed iterations so repeated runs do not read "
-             "a warm cache",
     )
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()
@@ -126,6 +123,10 @@ def build_step(step, verbose, fast_math):
     cuda_cflags = ["-O3"]
     if fast_math:
         cuda_cflags.append("--use_fast_math")
+    if verbose:
+        # Register count and spill traffic explain most of the fast-math delta
+        # on the register-resident steps, so surface them alongside the build.
+        cuda_cflags.append("-Xptxas=-v")
 
     return load(
         name=f"flash_attn_{step.name}",
@@ -324,10 +325,18 @@ def format_vs_prev(result, previous):
     return f"{previous.timing.median / result.timing.median:.2f}x"
 
 
-def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct):
+def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
+                  fast_math, flush_l2):
     batch, heads, seqlen, headdim = shape
 
-    print(f"\nB={batch}, H={heads}, N={seqlen}, d={headdim}\n")
+    # Printed inside the table block so a row pasted into the README carries
+    # the build configuration it was measured under. Comparing a step built
+    # with --use_fast_math against one built without it attributes a compile
+    # flag to an algorithmic change.
+    print(
+        f"\nB={batch}, H={heads}, N={seqlen}, d={headdim}, "
+        f"fast_math={fast_math}, flush_l2={flush_l2}\n"
+    )
     print(
         "| Step | dtype | Correctness | Latency | Spread | TFLOPS | "
         "vs. prev. | % SDPA |"
@@ -554,6 +563,8 @@ def main():
         torch_fp32_timing,
         sdpa_cold,
         sdpa_drift_pct,
+        args.fast_math,
+        args.flush_l2,
     )
 
     for name, message in errors:
