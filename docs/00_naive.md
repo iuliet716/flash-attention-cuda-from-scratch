@@ -62,7 +62,7 @@ Again, no tiling or reuse of `P` and `V` is applied.
 
 <img width="800" height="350" alt="Kernel breakdown" src="assets/1_kernel_breakdown.png" />
 
-The major problem is the materialization of the $(N \times N)$ score/probability matrix in off-chip memory.
+The key bottleneck is the materialization of the $(N \times N)$ score/probability matrix in off-chip memory.
 
 <img width="800" height="298" alt="Device-memory traffic" src="assets/2_hbm.png" />
 
@@ -74,4 +74,4 @@ For each attention operation:
 
 This produces $O(N^2)$ device-memory traffic in addition to the attention computation itself.
 
-> On RTX 5090, HBM traffic refers to off-chip GDDR7 memory traffic.
+> Following FlashAttention terminology, HBM traffic refers to off-chip device-memory traffic; on RTX 5090, this is GDDR7.
