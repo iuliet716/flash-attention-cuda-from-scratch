@@ -58,8 +58,3 @@ for (int offset = 16; offset > 0; offset >>= 1) {
     sum += __shfl_xor_sync(0xffffffff, sum, offset);
 }
 ```
-
-for (int j = lane; j < N; j += 32) {
-    row[j] *= inv_sum;
-}
-```
