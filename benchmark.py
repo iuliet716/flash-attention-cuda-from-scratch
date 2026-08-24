@@ -290,7 +290,7 @@ def format_vs_prev(result, previous):
     return f"{previous.timing.median / result.timing.median:.2f}x"
 
 
-def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
+def print_results(results, shape, torch_fp32_timing, sdpa_cold, 
                   fast_math, flush_l2):
     batch, heads, seqlen, headdim = shape
 
