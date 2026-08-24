@@ -6,8 +6,7 @@ Replace the single-thread-per-row softmax with a **one-warp-per-row** implementa
 
 ## Warp-level reduction
 
-A warp consists of **32 threads** that execute together.  
-It execute the **same instruction at the same time** on NVIDIA GPUs.  
+A warp consists of **32 threads** that are scheduled and executed as a group.
 
 CUDA warp shuffle instructions allow lanes to exchange register values directly without using shared memory.
 
