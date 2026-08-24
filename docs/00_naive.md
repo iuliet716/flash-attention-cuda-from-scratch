@@ -2,89 +2,76 @@
 
 ## What this step implements
 
-Three separate kernels, with the intermediate `S = scale·QKᵀ` and `P = softmax(S)` matrices stored in HBM.
+A straightforward CUDA implementation of standard attention:
 
-## Code
+$$
+S = \mathrm{scale} \cdot QK^\top,\qquad
+P = \mathrm{softmax}(S),\qquad
+O = PV
+$$
 
-### `naive_qk_kernel`
+The computation is split into three separate kernels, with the full $(N \times N)$ attention matrix materialized in device memory.
 
-Calculate $QK^\top$.  
+## Baseline design
 
-We assign each thread for an element of score matrix $S$.
+### QKᵀ
 
-$S[i][j] = \sum_{k}Q[i][k] \cdot K[j][j]$  
+Each thread computes one element of the score matrix:
 
 ```cuda
 float acc = 0.0f;
 for (int k = 0; k < d; ++k) {
     acc += Qb[row * d + k] * Kb[col * d + k];
 }
+Sb[row * N + col] = acc * scale;
 ```
 
-The $(N \times N)$ score matrix is computed by **(16×16) thread blocks**.  
-It provides a **simple 2D mapping** between threads and score elements.
+No shared-memory tiling or data reuse is applied.
+
+### Softmax
+
+Each thread processes one complete row sequentially:
 
 ```cuda
-dim3 block(16, 16);
-dim3 grid((N + block.x - 1) / block.x,
-          (N + block.y - 1) / block.y,
-          batch_count);
-naive_qk_kernel<<<grid, block, 0, stream>>>(dQ, dK, dS, N, d, scale);
+for (int j = 0; j < N; ++j)
+    max_val = fmaxf(max_val, row[j]);
+
+for (int j = 0; j < N; ++j)
+    sum += __expf(row[j] - max_val);
+
+for (int j = 0; j < N; ++j)
+    row[j] = __expf(row[j] - max_val) / sum;
 ```
 
-### `naive_softmax_kernel`
+This requires three passes over $N$ elements for max, exponential sum, and normalization.
 
-Calculate Softmax of score matrix $S$.  
+### PV
 
-A **256-thread linear block** provides **8 warps** that cooperatively perform the **row-wise reduction**.
+Each thread computes one output element:
 
 ```cuda
-const int total_rows = batch_count * N;
-const int threads = 256;
-const int blocks = (total_rows + threads - 1) / threads;
-naive_softmax_kernel<<<blocks, threads, 0, stream>>>(dS, N, total_rows);
+float acc = 0.0f;
+for (int k = 0; k < N; ++k) {
+    acc += Pb[row * N + k] * Vb[k * d + col];
+}
 ```
 
-### `naive_pv_kernel`
+Again, no tiling or reuse of `P` and `V` is applied.
 
-Calculate $PV$.  
+## Bottleneck
 
-A **(32×8) thread block** maps each warp to **32 contiguous output dimensions** of one row, enabling **coalesced memory access**.  
+<img width="800" height="350" alt="Kernel breakdown" src="assets/1_kernel_breakdown.png" />
 
->For $(d \neq 32)$, **warp underutilization or extra block overhead** may reduce efficiency.  
->Therefore, the block configuration can be further tuned for different head dimensions.  
+The major problem is the materialization of the $(N \times N)$ score/probability matrix in off-chip memory.
 
-```cuda
-dim3 block(32, 8);
-dim3 grid((d + block.x - 1) / block.x,
-          (N + block.y - 1) / block.y,
-          batch_count);
-naive_pv_kernel<<<grid, block, 0, stream>>>(dP, dV, dO, N, d);
-```
+<img width="800" height="298" alt="Device-memory traffic" src="assets/2_hbm.png" />
 
-## Measurements
+For each attention operation:
 
-For a more detailed analysis, we use NVIDIA Nsight Compute (NCU).
+1. `QKᵀ` writes the $(N \times N)$ score matrix.
+2. Softmax reads the score matrix repeatedly for max, sum, and normalization.
+3. `PV` reads the normalized $(N \times N)$ matrix again.
 
-### Kernel breakdown
+This produces $O(N^2)$ device-memory traffic in addition to the attention computation itself.
 
-<img width="800" height="350" alt="image" src="assets/1_kernel_breakdown.png" />
-
-### HBM traffic — why this is the bottleneck
-
-<img width="800" height="298" alt="image" src="assets/2_hbm.png" />
-
-The kernels communicate through HBM:
-
-1. `S` (N×N) is written by `naive_qk_kernel`
-2. `S` (N×N) is re-read ×3 by `softmax_kernel` (max, sum, normalize)
-3. `S` (N×N) is read again by `naive_pv_nernel`
-
-Naive attention materializes N×N score/probability matrices, causing $O(N²)$ off-chip memory traffic.  
-The gray line shows the ideal $O(N)$ I/O lower bound, not the compute complexity of attention.
-
-<br>
-
-> [!NOTE]
-*In FlashAttention literature, “HBM traffic” refers to traffic to off-chip device memory.  
-On RTX 5090, the corresponding off-chip device memory is GDDR7, so we measure it as GDDR7-based device-memory traffic.
+> On RTX 5090, HBM traffic refers to off-chip GDDR7 memory traffic.
