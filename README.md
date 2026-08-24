@@ -20,6 +20,8 @@ NVIDIA RTX 5090 32GB
 
 Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled; L2 flush disabled.
 
+(B, H, N, d) = (8, 16, 4096, 64)
+
 ## Track A: Unfused kernel
 
 | Step | Technique | dtype | Latency | vs. prev. | TFLOPS |
