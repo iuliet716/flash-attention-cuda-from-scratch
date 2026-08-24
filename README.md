@@ -12,12 +12,35 @@ Each optimization step is preserved separately to show how individual design aff
 
 # Kernel Design Highlights
 
+### SRAM Tiling
+Process Q/K/V in tiles to avoid materializing the full attention matrix in HBM.
+
+### Online Softmax
+Compute numerically stable softmax incrementally across K/V tiles.
+
+### Coalesced & Vectorized Memory Access
+Improve global-memory efficiency with aligned and vectorized loads.
+
+### Shared-Memory Swizzling
+Reduce shared-memory bank conflicts during tiled matrix operations.
+
+### Tensor Core Acceleration
+Use FP16 WMMA operations for QKᵀ and PV matrix multiplication.
+
+### Double Buffering
+Overlap tile loading with computation to reduce memory stalls.
+
+### Register-Resident Accumulation
+Keep output accumulators in registers to minimize shared-memory traffic.
+
 
 # Benchmark
-(B, H, N, d) = (8, 16, 4096, 64)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.7.0-EE4C2C?logo=pytorch&logoColor=white)
+![CUDA](https://img.shields.io/badge/CUDA-12.8-76B900?logo=nvidia&logoColor=white)
 
 NVIDIA RTX 5090 32GB  
-![PyTorch](https://shields.io) ![CUDA](https://shields.io)  
+
+(B, H, N, d) = (8, 16, 4096, 64)
 
 ## References
 
