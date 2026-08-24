@@ -12,6 +12,8 @@ Each optimization step is preserved separately to show how individual design aff
 
 # Kernel Design Highlights
 
+See `/docs` for detailed design notes.
+
 ### SRAM Tiling
 Process Q/K/V in tiles to avoid materializing the full attention matrix in HBM.
 
