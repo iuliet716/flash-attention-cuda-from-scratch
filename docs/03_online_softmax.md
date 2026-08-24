@@ -7,6 +7,9 @@ Replace the conventional max-then-sum softmax with an online softmax formulation
 Instead of computing the maximum and exponential sum in separate passes,  
 each lane maintains a running softmax state that can later be extended to tiled attention.
 
+This step is **not intended to improve the standalone unfused runtime**.  
+Its purpose is to introduce the online softmax **required for tiled FlashAttention in the following fused kernel**.
+
 ## Online softmax state
 
 For a set of processed values, maintain two statistics:
