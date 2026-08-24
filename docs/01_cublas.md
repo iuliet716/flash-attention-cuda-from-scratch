@@ -31,80 +31,54 @@ we can use strided batched GEMM to compute all of them with a single cuBLAS call
 This step focuses on replacing the naive CUDA matmul kernels with a simple optimized library baseline.  
 **More advanced APIs can be explored in later steps** when we introduce mixed precision, Tensor Cores, or more aggressive GEMM tuning.  
 
-## Code
+## Row-major mapping
 
-### `gemm_qk`
+cuBLAS assumes column-major storage, while the attention tensors are stored in row-major layout.
 
-[NVIDIA Docs](https://docs.nvidia.com/cuda/cublas/#cublas-t-gemmstridedbatched) describe `cublasSgemmStridedBatched()`.  
+For $QK^\top$, the desired row-major result is
 
-cuBLAS assumes column-major layout by default, while we store tensors in row-major layout.  
-Therefore, the operands are passed in reversed order with appropriate transpose flags.  
+$$
+S_{\text{row}} = \mathrm{scale} \cdot Q_{\text{row}}K_{\text{row}}^\top.
+$$
 
-**Conceptually**, we want to compute the following **row-major** attention score matrix:  
+The same buffers are interpreted by cuBLAS in column-major form, so the call computes the transposed result:
 
-$$S_{\text{row}} = \text{scale} \cdot Q_{\text{row}} K_{\text{row}}^\top$$
+$$
+S_{\text{row}}^\top = K_{\text{row}}Q_{\text{row}}^\top.
+$$
 
-**However**, a row-major matrix is interpreted by cuBLAS as a column-major matrix.  
-Therefore, instead of directly calling GEMM as $QK^\top$, **we pass $K$ first and $Q$ second, and use transpose flags**:  
+This avoids explicit tensor transposes or additional memory copies.
 
-$$\text{scale} \cdot K_{\text{row}} Q_{\text{row}}^\top$$
-
-This is not a problem because the cuBLAS output buffer is interpreted as a row-major matrix in our implementation.  
-The column-major result written by cuBLAS corresponds to the transpose of the row-major output:
-
-$$S_{\text{row}} = C_{\text{col}}^\top = \left(\text{scale} \cdot K_{\text{row}} Q_{\text{row}}^\top\right)^\top = \text{scale} \cdot Q_{\text{row}} K_{\text{row}}^\top$$
-
-```CUDA
-cublasStatus_t gemm_qk(
-    cublasHandle_t handle,
-    const float* dQ, const float* dK, float* dS,
-    int N, int d, float scale, int batch_count)
-{
-    const float beta = 0.0f;
-    return cublasSgemmStridedBatched(
-        handle,
-        CUBLAS_OP_T, CUBLAS_OP_N,
-        N, N, d,
-        &scale,
-        dK, d, (long long)N * d,
-        dQ, d, (long long)N * d,
-        &beta,
-        dS, N, (long long)N * N,
-        batch_count);
-}
+```cuda
+return cublasSgemmStridedBatched(
+    handle,
+    CUBLAS_OP_T, CUBLAS_OP_N,
+    N, N, d,
+    &scale,
+    dK, d, (long long)N * d,
+    dQ, d, (long long)N * d,
+    &beta,
+    dS, N, (long long)N * N,
+    batch_count);
 ```
 
-### `gemm_pv`
+The same layout mapping is used for $PV$:
 
-This kernel computes the final attention output:
+$$
+O_{\text{row}} = P_{\text{row}}V_{\text{row}}
+\qquad\Longleftrightarrow\qquad
+O_{\text{row}}^\top = V_{\text{row}}^\top P_{\text{row}}^\top.
+$$
 
-$$O_{\text{row}} = P_{\text{row}} V_{\text{row}}$$
-
-Because the row-major output is interpreted as the transpose of the cuBLAS column-major result, the cuBLAS call computes:
-
-$$C_{\text{col}} = V_{\text{row}}^\top P_{\text{row}}^\top = \left(P_{\text{row}} V_{\text{row}}\right)^\top$$
-
-which corresponds to the desired row-major output $O_{\text{row}}$.  
-
-```CUDA
-cublasStatus_t gemm_pv(
-    cublasHandle_t handle,
-    const float* dP, const float* dV, float* dO,
-    int N, int d, int batch_count)
-{
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    return cublasSgemmStridedBatched(
-        handle,
-        CUBLAS_OP_N, CUBLAS_OP_N,
-        d, N, N,
-        &alpha,
-        dV, d, (long long)N * d,
-        dP, N, (long long)N * N,
-        &beta,
-        dO, d, (long long)N * d,
-        batch_count);
-}
+```cuda
+return cublasSgemmStridedBatched(
+    handle,
+    CUBLAS_OP_N, CUBLAS_OP_N,
+    d, N, N,
+    &alpha,
+    dV, d, (long long)N * d,
+    dP, N, (long long)N * N,
+    &beta,
+    dO, d, (long long)N * d,
+    batch_count);
 ```
-
-## Measurements
