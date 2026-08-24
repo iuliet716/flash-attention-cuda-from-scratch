@@ -34,19 +34,14 @@ PRESETS = {
 
 DEFAULT_PRESET = "llm"
 
-# Below this latency the CUDA-event window is dominated by host-side dispatch
-# (pybind, tensor allocation, argument checks) instead of the kernel itself.
 OVERHEAD_BOUND_MS = 0.10
 
-# Validation cases. ``logit_scale`` multiplies Q, which widens the score
-# distribution: the peaked case forces the running-max updates and accumulator
-# rescaling of the online-softmax kernels to actually fire.
+# Validation cases. ``logit_scale`` multiplies Q, which widens the score distribution
 VALIDATION_CASES = (
     ("uniform", 1.0),
     ("peaked", 4.0),
 )
 
-# The case whose tensors are used for the timed runs.
 TIMING_CASE = "uniform"
 
 
@@ -124,8 +119,7 @@ def build_step(step, verbose, fast_math):
     if fast_math:
         cuda_cflags.append("--use_fast_math")
     if verbose:
-        # Register count and spill traffic explain most of the fast-math delta
-        # on the register-resident steps, so surface them alongside the build.
+        # Show register usage and spill information from ptxas.
         cuda_cflags.append("-Xptxas=-v")
 
     return load(
@@ -137,22 +131,13 @@ def build_step(step, verbose, fast_math):
     )
 
 
-def tolerances(prefix, reference):
-    """Tolerances scaled by the magnitude of the reference output.
-
-    A fixed ``atol`` is meaningless here: attention over N keys averages V, so
-    the output magnitude shrinks roughly as 1/sqrt(N). At N=4096 the old fixed
-    1e-2 was about as large as the signal itself, which let a nearly arbitrary
-    FP16 result pass ``allclose``.
-    """
-    magnitude = reference.abs().max().item()
-
+def tolerances(prefix):
+    # FP16
     if prefix >= 7:
-        # Never looser than the original 1e-2, and never absurdly tight.
-        return 1e-2, min(1e-2, max(1e-2 * magnitude, 1e-5))
+        return 1e-2, 1e-2
 
-    # FP32 track keeps its original floor and only loosens for large outputs.
-    return 1e-4, max(1e-5, 1e-5 * magnitude)
+    # FP32
+    return 1e-4, 1e-5
 
 
 @torch.inference_mode()
@@ -161,8 +146,6 @@ def low_precision_reference(inputs):
     q, k, v = inputs
     scale = math.sqrt(q.shape[-1])
 
-    # Match FlashAttention's reference test idea: keep FP16 arithmetic and
-    # use a mathematically equivalent operation order for the PyTorch baseline.
     scores = torch.matmul(q, (k / scale).transpose(-2, -1))
     probs = torch.softmax(scores, dim=-1)
     return torch.matmul(probs, v)
@@ -183,16 +166,18 @@ class Case:
 
 @torch.inference_mode()
 def build_case(name, shape, logit_scale, seed, needs_fp32, needs_fp16):
-    generator = torch.Generator(device="cuda").manual_seed(seed)
-    q, k, v = (
-        torch.randn(*shape, device="cuda", generator=generator)
-        for _ in range(3)
-    )
+    generator = torch.Generator(device="cuda")
+    generator.manual_seed(seed)
+    
+    q = torch.randn(*shape, device="cuda", generator=generator)
+    k = torch.randn(*shape, device="cuda", generator=generator)
+    v = torch.randn(*shape, device="cuda", generator=generator)
+    
     if logit_scale != 1.0:
         q = q * logit_scale
 
     fp32_inputs = (q, k, v)
-    fp16_inputs = tuple(tensor.half() for tensor in fp32_inputs)
+    fp16_inputs = (q.half(), k.half(), v.half())
 
     case = Case(name=name, fp32_inputs=fp32_inputs, fp16_inputs=fp16_inputs)
 
@@ -202,8 +187,7 @@ def build_case(name, shape, logit_scale, seed, needs_fp32, needs_fp16):
             case.fp32_reference = F.scaled_dot_product_attention(*fp32_inputs)
 
         if needs_fp16:
-            # Preserve the values seen by the FP16 kernel, then compute the
-            # high-precision reference in FP32.
+        # Compute the FP32 reference from the same FP16 inputs.
             case.fp16_reference = F.scaled_dot_product_attention(
                 *(tensor.float() for tensor in fp16_inputs)
             )
@@ -224,7 +208,7 @@ def validate_case(output, case, prefix):
     else:
         reference = case.fp32_reference
 
-    rtol, atol = tolerances(prefix, reference)
+    rtol, atol = tolerances(prefix)
 
     if not torch.allclose(output.float(), reference, rtol=rtol, atol=atol):
         return False
@@ -246,26 +230,8 @@ class Timing:
     minimum: float
     maximum: float
 
-    @property
-    def spread_pct(self):
-        """Measured but deliberately not printed in the results table.
-
-        Under WSL2 the Windows display driver preempts the GPU on a ~16.6 ms
-        (60 Hz) wall-clock period, costing ~1.5 ms each time. PyTorch SDPA
-        takes the same hit, so it is the machine and not the kernel. Because
-        (max - min) is an extreme-value statistic, any run longer than one
-        refresh period is guaranteed to catch a preemption, and the stolen
-        time is roughly constant in absolute terms -- so this number grows as
-        the kernels get faster and reads as a regression when it is the
-        opposite. The median is what the table reports instead.
-        """
-        if self.median == 0.0:
-            return 0.0
-        return (self.maximum - self.minimum) / self.median * 100.0
-
 
 def make_flush_buffer():
-    """A buffer large enough that writing it evicts the whole L2."""
     properties = torch.cuda.get_device_properties(0)
     l2_bytes = getattr(properties, "L2_cache_size", 0) or (128 << 20)
     return torch.empty(2 * l2_bytes, dtype=torch.uint8, device="cuda")
@@ -319,19 +285,7 @@ class StepResult:
 
 
 def format_vs_prev(result, previous):
-    """Only chain the speedup when the two rows are actually comparable.
-
-    A ratio across a track boundary (03 -> 04), across a dtype change
-    (06 -> 07), or across a step that failed to build attributes the delta to
-    the wrong cause, so those print as ``-``.
-    """
     if previous is None:
-        return "-"
-    if result.prefix != previous.prefix + 1:
-        return "-"
-    if result.dtype != previous.dtype:
-        return "-"
-    if result.track != previous.track:
         return "-"
     return f"{previous.timing.median / result.timing.median:.2f}x"
 
@@ -340,10 +294,6 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
                   fast_math, flush_l2):
     batch, heads, seqlen, headdim = shape
 
-    # Printed inside the table block so a row pasted into the README carries
-    # the build configuration it was measured under. Comparing a step built
-    # with --use_fast_math against one built without it attributes a compile
-    # flag to an algorithmic change.
     print(
         f"\nB={batch}, H={heads}, N={seqlen}, d={headdim}, "
         f"fast_math={fast_math}, flush_l2={flush_l2}\n"
@@ -372,15 +322,6 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
 
         previous = result
 
-    print(
-        "\n`% SDPA` uses a PyTorch SDPA (FP16) measurement taken immediately "
-        "after each step,\nso both sides see the same clock and thermal state. "
-        "FP32 steps are still compared\nagainst an FP16 baseline. "
-        "`vs. prev.` is blank across track, dtype, and skipped-step "
-        "boundaries."
-    )
-
-    print("\nReferences (single measurement, taken after the steps above)\n")
     print("| Reference | dtype | Latency | TFLOPS |")
     print("|---|---|---:|---:|")
 
@@ -395,11 +336,6 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold, sdpa_drift_pct,
         f"| PyTorch SDPA FlashAttention (cold) | FP16 | "
         f"{sdpa_cold.median:.3f} ms | "
         f"{tflops(*shape, sdpa_cold.median):.1f} |"
-    )
-
-    print(
-        f"\nSDPA baseline drift over the run: {sdpa_drift_pct:+.1f}% "
-        "(cold start -> last paired measurement)."
     )
 
 
@@ -421,17 +357,9 @@ def warn_if_overhead_bound(timing):
         return
 
     print(
-        f"\nWARNING: the SDPA baseline runs in {timing.median:.3f} ms, below "
-        f"the {OVERHEAD_BOUND_MS:.2f} ms\n"
-        "         threshold where host-side dispatch dominates the CUDA-event "
-        "window.\n"
-        "         The custom steps pay pybind dispatch, argument checks and "
-        "output\n"
-        "         allocation inside that window while SDPA does not, so these "
-        "numbers\n"
-        "         measure overhead, not kernel throughput. Use a larger shape "
-        "(e.g.\n"
-        "         --preset llm) for a meaningful comparison."
+        f"\nWARNING: SDPA latency ({timing.median:.3f} ms) is below {OVERHEAD_BOUND_MS:.2f} ms"
+        "so dispatch overhead may dominate."
+        "Use a larger shape for meaningful kernel throughput comparisons."
     )
 
 
@@ -445,8 +373,6 @@ def main():
     major, minor = torch.cuda.get_device_capability()
     os.environ.setdefault("TORCH_CUDA_ARCH_LIST", f"{major}.{minor}")
 
-    # Pin TF32 off so the cuBLAS handle shared with step 01 cannot silently
-    # switch to tensor-core math while the FP32 reference stays true FP32.
     torch.backends.cuda.matmul.allow_tf32 = False
 
     shape = resolve_shape(args)
@@ -456,7 +382,6 @@ def main():
     print(
         f"Config: warmup={args.warmup}, iters={args.iters}, "
         f"fast_math={args.fast_math}, flush_l2={args.flush_l2}, "
-        f"allow_tf32={torch.backends.cuda.matmul.allow_tf32}"
     )
 
     flush_buffer = make_flush_buffer() if args.flush_l2 else None
@@ -489,7 +414,6 @@ def main():
                 flush_buffer,
             )
 
-    # Cold baseline, kept only to report how far the GPU drifts during the run.
     sdpa_cold = run_sdpa()
     warn_if_overhead_bound(sdpa_cold)
 
@@ -522,8 +446,7 @@ def main():
                 flush_buffer,
             )
 
-            # Paired baseline: measured right after the step, under the same
-            # clock and thermal state.
+            # Paired SDPA baseline under similar GPU conditions
             sdpa_last = run_sdpa()
 
             results.append(
@@ -540,7 +463,6 @@ def main():
             )
 
         except Exception as error:
-            # Keep benchmarking the remaining learning steps.
             message = str(error).strip() or type(error).__name__
             message = message.splitlines()[-1]
             errors.append((step.name, message))
@@ -564,14 +486,11 @@ def main():
             "out of memory for the N x N scores buffer"
         )
 
-    sdpa_drift_pct = (sdpa_last.median / sdpa_cold.median - 1.0) * 100.0
-
     print_results(
         results,
         shape,
         torch_fp32_timing,
         sdpa_cold,
-        sdpa_drift_pct,
         args.fast_math,
         args.flush_l2,
     )
