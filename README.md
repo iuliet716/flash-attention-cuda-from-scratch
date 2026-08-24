@@ -6,9 +6,11 @@ Each optimization step is preserved separately to show how individual design aff
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
+
 # Key Results
 - **3.273 ms** latency and **168.0 TFLOPS**
 - **76.8% of PyTorch SDPA FlashAttention performance**
+
 
 # Kernel Design Highlights
 
@@ -34,6 +36,23 @@ Overlap tile loading with computation to reduce memory stalls.
 
 ### Register-Resident Accumulation
 Keep output accumulators in registers to minimize shared-memory traffic.
+
+
+# Limitations & To Do
+
+## Current Limitations
+- Forward pass only
+- FP16 fused kernel
+- Head dimension limited to 64 and 128
+- Non-causal self-attention only
+- No support for variable-length sequences
+
+## To Do
+- [ ] Backward pass
+- [ ] Causal attention
+- [ ] BF16 support
+- [ ] Support for additional head dimensions
+- [ ] Further kernel optimization
 
 
 # Benchmark
@@ -71,6 +90,7 @@ NVIDIA RTX 5090 32GB
 | 08 | WMMA TensorCore | FP16 | 37.782 ms | 1.51x | 14.6 | 6.5 % |
 | 09 | Double Buffering | FP16 | 23.542 ms | 1.60x | 23.4 | 10.5 % |
 | 10 | Register-Resident Accumulators | FP16 | **3.273 ms** | 7.19x | **168.0** | **76.8 %** |
+
 
 ## Get Started
 ```bash
