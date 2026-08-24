@@ -96,5 +96,3 @@ After this, every lane holds the row max.
 
 Each lane computes `exp(x − max)` for its slice, writes it back in place for the final pass to reuse, and accumulates a local sum.  
 The same butterfly pattern then reduces the partial sums.
-
-## Measurements
