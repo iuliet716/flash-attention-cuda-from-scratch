@@ -131,7 +131,7 @@ L1/TEX throughput reaches 99.6% while SM throughput remains at 22.5%, with LG-th
 For each attention operation:
 
 1. `QKᵀ` writes the $(N \times N)$ score matrix.
-2. Softmax reads the score matrix repeatedly for max, sum, and normalization.
+2. `softmax` reads the score matrix repeatedly for max, sum, and normalization.
 3. `PV` reads the normalized $(N \times N)$ matrix again.
 
 This produces $O(N^2)$ device-memory traffic in addition to the attention computation itself.
