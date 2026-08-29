@@ -116,7 +116,7 @@ This motivates replacing the naive scalar matmul with a tiled GEMM implementatio
 The three naive kernels expose different bottlenecks:
 
 * `QKᵀ`: L1/TEX saturation from redundant and uncoalesced global-memory accesses.
-* Softmax: low instruction issue efficiency from sequential per-thread row processing.
+* `softmax`: low instruction issue efficiency from sequential per-thread row processing.
 * `PV`: high utilization, but still limited by memory-dependency stalls and lack of explicit data reuse.
 
 Together, these results show that the baseline is limited not by a single hardware resource, but by inefficient memory access patterns, insufficient parallelism, and lack of locality.
