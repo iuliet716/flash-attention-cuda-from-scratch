@@ -58,82 +58,64 @@ for (int k = 0; k < N; ++k) {
 
 Again, no tiling or reuse of `P` and `V` is applied.
 
-## Measurements
+## Why this baseline is inefficient
 
-### Nsight Compute profile
+The implementation exposes three major problems.
 
-A full Nsight Compute profile was collected on RTX 5090 for the representative FP32 shape `B=8, H=16, N=4096, d=64`.
+### 1. No explicit data reuse
 
-| Kernel  | SM Throughput | L1/TEX |    L2 |  DRAM | Main signal                                                       |
-| ------- | ------------: | -----: | ----: | ----: | ----------------------------------------------------------------- |
-| `QKᵀ`   |         22.5% |  99.6% | 10.4% |  2.6% | L1/TEX saturation and inefficient global-memory accesses          |
-| Softmax |          1.0% |  18.4% | 37.2% | 12.8% | very low eligible-warps rate and highly serialized execution      |
-| `PV`    |         90.0% |  90.4% | 15.2% |  9.1% | high utilization, but significant memory-dependency stalls remain |
+Both matrix multiplications operate directly on global-memory data without shared-memory tiling.
 
-#### QKᵀ
+The same `Q`, `K`, `P`, and `V` values are therefore consumed repeatedly by different threads instead of being explicitly staged and reused on chip.
 
-`QKᵀ` reaches almost **100% L1/TEX throughput while DRAM throughput is only 2.6%**.
+### 2. Sequential softmax
 
-This does not indicate a DRAM-bandwidth bottleneck.  
-Instead, the naive thread mapping repeatedly accesses the same `Q` elements and poorly coalesced `K` elements without explicit shared-memory reuse.
+A single thread processes an entire attention row.
 
-As a result, the **L1/TEX path becomes saturated well before DRAM bandwidth is fully utilized**.
+The max reduction, exponential sum, and normalization are all performed serially, leaving substantial parallelism unused.
 
-Nsight Compute explicitly flags the global-load access pattern as inefficient:
+### 3. Materialized attention matrices
 
-> "Only 4 of 32 bytes per sector are utilized," with 66% excessive sectors.
-
-This motivates explicit tiling and data reuse rather than relying on the hardware cache hierarchy.
-
-#### Softmax
-
-Softmax shows only **1.0% SM throughput**, despite relatively higher L1/L2 activity.
-
-The main issue is the one-thread-per-row mapping.  
-Each thread scans the same row three times for max, exponential sum, and normalization, while neighboring threads in a warp access different rows with a large stride.
-
-Nsight Compute shows that very few warps are eligible to issue instructions, indicating that execution is dominated by latency and serialization rather than raw memory bandwidth.
-
-> Only about 0.02 warps per scheduler are eligible to issue, with roughly 234 cycles between issued instructions.
-
-This motivates parallelizing each row across a warp and using warp-level reductions.
-
-#### PV
-
-`PV` reaches about **90% SM and L1/TEX throughput**, making it the most efficiently utilized of the three naive kernels.
-
-Its `(32, 8)` thread-block layout gives `V` a more favorable access pattern across each warp,  
-but the kernel still performs a long scalar dot-product loop without shared-memory tiling or explicit data reuse.
-
-Nsight Compute shows that memory dependencies remain a major source of stalls.
-
-> Long-scoreboard stalls account for about 58% of the cycles between issued instructions.
-
-This motivates replacing the naive scalar matmul with a tiled GEMM implementation that improves reuse and hides memory latency.
-
-#### Overall
-
-The three naive kernels expose different bottlenecks:
-
-* `QKᵀ`: L1/TEX saturation from redundant and uncoalesced global-memory accesses.
-* `softmax`: low instruction issue efficiency from sequential per-thread row processing.
-* `PV`: high utilization, but still limited by memory-dependency stalls and lack of explicit data reuse.
-
-Together, these results show that the baseline is limited not by a single hardware resource, but by inefficient memory access patterns, insufficient parallelism, and lack of locality.
-
-Nsight Compute also confirms that the kernel is memory-bound.  
-L1/TEX throughput reaches 99.6% while SM throughput remains at 22.5%, with LG-throttle stalls dominating execution.
-
-### $O(N^2)$ Memory Access
-
-<img width="800" height="298" alt="Device-memory traffic" src="assets/2_hbm.png" />
+The full score and probability matrices are stored in device memory between kernels.
 
 For each attention operation:
 
 1. `QKᵀ` writes the $(N \times N)$ score matrix.
-2. `softmax` reads the score matrix repeatedly for max, sum, and normalization.
+2. Softmax repeatedly reads and updates that matrix.
 3. `PV` reads the normalized $(N \times N)$ matrix again.
 
-This produces $O(N^2)$ device-memory traffic in addition to the attention computation itself.
+<img width="800" height="298" alt="Device-memory traffic" src="assets/2_hbm.png" />
+
+This introduces $O(N^2)$ intermediate device-memory traffic in addition to the arithmetic required by attention itself.
 
 > Following FlashAttention terminology, HBM traffic refers to off-chip device-memory traffic; on RTX 5090, this is GDDR7.
+
+## Nsight Compute summary
+
+Nsight Compute confirms that these design choices produce different bottlenecks across the three kernels.
+
+For `B=8, H=16, N=4096, d=64`:
+
+| Kernel  | Main observation                                                                       |
+| ------- | -------------------------------------------------------------------------------------- |
+| `QKᵀ`   | L1/TEX reaches 99.6% while DRAM remains at 2.6%, with inefficient global-load accesses |
+| Softmax | only 1.0% SM throughput and extremely low eligible-warp rate                           |
+| `PV`    | high SM/L1 utilization, but significant memory-dependency stalls remain                |
+
+The important point is that the baseline is **not simply limited by raw DRAM bandwidth**.
+
+Instead, it suffers from a combination of inefficient memory accesses, insufficient parallelism, long dependency chains, and lack of explicit data reuse.
+
+Detailed profiler metrics and stall analysis are documented separately:
+
+→ [Nsight Compute Analysis — Step 00](ncu/00_naive.md)
+
+## Conclusion
+
+The naive implementation establishes the baseline and exposes the two problems that drive the following optimizations:
+
+* inefficient standalone kernels,
+* and repeated movement of the $N \times N$ attention matrix through device memory.
+
+The next steps first optimize the individual operations before moving toward tiled, fused attention that keeps intermediate state on chip.
+
