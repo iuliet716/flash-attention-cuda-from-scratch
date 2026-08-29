@@ -105,7 +105,7 @@ Warp-level reduction solves the most obvious parallelization and coalescing prob
 
 The remaining profile exposes the next limitation more clearly: the algorithm still repeatedly streams the materialized `N × N` score matrix through global memory.
 
-Thus Step 02 improves how softmax accesses the matrix, but it does not remove the **O(N²) intermediate-memory traffic**.
+Thus Step 02 improves how softmax accesses the matrix, but it does not remove the **O(N²) intermediate-memory traffic**.  
 This motivates the online-softmax formulation in Step 03 and,  
 ultimately, fusing attention so that the score matrix no longer needs to be materialized and repeatedly transferred through global memory.
 
