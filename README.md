@@ -40,8 +40,9 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 | 06 | Bank Conflict Avoidance (Swizzling) | FP32 | 64.736 ms | 1.87x | 8.5 | 3.9% |
 | 07 | Half-Precision (FP16) | FP16 | 57.156 ms | 1.13x | 9.6 | 4.4% |
 | 08 | WMMA Tensor Cores | FP16 | 37.782 ms | 1.51x | 14.6 | 6.5% |
-| 09 | Double Buffering | FP16 | 23.542 ms | 1.60x | 23.4 | 10.5% |
-| 10 | Register-Resident Accumulators | FP16 | **3.273 ms** | 7.19x | **168.0** | **76.8%** |
+| 09 | 2D Warp Tiling | FP16 | - | - | - | - |
+| 10 | Double Buffering | FP16 | 23.542 ms | 1.60x | 23.4 | 10.5% |
+| 11 | Register-Resident Accumulators | FP16 | **3.273 ms** | 7.19x | **168.0** | **76.8%** |
 
 > All reported kernels pass correctness checks against PyTorch SDPA.
 

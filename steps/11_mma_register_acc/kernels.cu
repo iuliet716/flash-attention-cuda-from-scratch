@@ -54,7 +54,7 @@ __global__ void fused_attention_kernel(
 {
     // register-resident attention:
     //   registers: Q, S, P, O, m, l
-    //   shared memory: double-buffered K, V
+    //   shared memory: K[2], V[2]
     //
     // D is fixed at compile time to keep register accumulator sizes static.
     constexpr int LDH = D + SKEW;  // K, V row stride in halves
@@ -109,7 +109,7 @@ __global__ void fused_attention_kernel(
 #pragma unroll
         for (int e = 0; e < 4; ++e) o[jo][e] = 0.0f;
 
-    // async K, V tile load; zero-fill out-of-range rows
+    // Async K, V tile load into one of the two shared-memory stages
     auto load_kv_async = [&](int stg, int tile0) {
         float4* Ks4 = reinterpret_cast<float4*>(Ks + stg * BC * LDH);
         float4* Vs4 = reinterpret_cast<float4*>(Vs + stg * BC * LDH);
@@ -138,9 +138,10 @@ __global__ void fused_attention_kernel(
         const int stage = t % STAGES;
         const int tile = t * BC;
 
-        // prefetch the next tile while processing the current tile
         if (t + 1 < n_tiles) {
-            load_kv_async((t + 1) % STAGES, tile + BC);
+            const int next_stage = (t + 1) % STAGES;
+            const int next_tile = tile + BC;
+            load_kv_async(next_stage, next_tile);
             __pipeline_commit();
             __pipeline_wait_prior(1);
         } else {

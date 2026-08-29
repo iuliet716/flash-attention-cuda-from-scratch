@@ -3,7 +3,7 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
-// maximum head dimension (multiple of 32 for PV WMMA tiling)
+// maximum head dimension
 constexpr int FUSED_D_MAX = 128;
 
 void launch_fused_attention(
