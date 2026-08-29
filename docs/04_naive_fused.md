@@ -181,10 +181,43 @@ This is the first and only global-memory write for the output element.
 
 This kernel establishes the **fused tiled attention structure**, but the matrix operations themselves remain simple:
 
+* scalar global-memory loads
+* scalar shared-memory accesses
 * scalar dot-product loops for $QK^\top$
 * scalar accumulation for $PV$
 * no Tensor Cores
-* no vectorized global-memory loads
+* no optimized shared-memory layout
 * no double buffering or asynchronous copies
 
-The following steps optimize these components while preserving the same tiled online-softmax dataflow.
+The attention matrix is no longer materialized in HBM, but efficient on-chip data movement is still required for the fused kernel to perform well.
+
+## Nsight Compute summary
+
+Nsight Compute shows that the bottleneck has moved away from DRAM traffic and into the on-chip memory path.
+
+The naive shared-memory access pattern produces severe bank conflicts and high memory-pipeline pressure, leaving relatively few warps eligible to issue despite high occupancy.
+
+Detailed profiler metrics are documented separately:
+
+→ [Nsight Compute Analysis — Step 04](ncu/04_naive_fused.md)
+
+## Conclusion
+
+Step 04 introduces the essential fused attention dataflow:
+
+```text
+tiled QKᵀ
+    ↓
+online softmax
+    ↓
+immediate PV accumulation
+    ↓
+no N × N intermediate matrix in HBM
+```
+
+However, eliminating the intermediate matrix does not by itself make the kernel efficient.
+
+The following steps optimize how data moves through the fused kernel:
+
+* Step 05 reduces memory-instruction pressure with vectorized loads.
+* Step 06 addresses shared-memory bank conflicts with swizzling.
