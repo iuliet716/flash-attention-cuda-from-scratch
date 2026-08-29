@@ -2,41 +2,54 @@
 
 ## What this step implements
 
-In this step, we replace the kernels for $QK^\top$ and $PV$ matrix multiplication with cuBLAS library calls.  
+This step replaces the naive $QK^\top$ and $PV$ kernels from Step 00 with cuBLAS GEMM.
 
-### Why cuBLAS
+The attention pipeline remains unchanged:
 
-cuBLAS provides highly optimized GPU implementations of linear algebra operations such as GEMM.
+$$
+S = \mathrm{scale} \cdot QK^\top,\qquad
+P = \mathrm{softmax}(S),\qquad
+O = PV
+$$
 
-Compared with the naive kernels in Step 0, cuBLAS GEMMs improve data reuse and memory access through optimized tiling and GPU-specific kernel tuning.
+Only the two matrix multiplications are replaced.
 
-### Why `cublasSgemmStridedBatched()` is used
+The naive softmax kernel is kept unchanged.
 
-Self-attention performs the same GEMM independently for each batch and head.
+This removes the inefficient scalar GEMM implementations from Step 00 while preserving the standard attention dataflow.
 
-Because these matrices have the **same shape** and a **regular memory stride**,  
-`cublasSgemmStridedBatched()` can process all batch/head matrices with a single cuBLAS call.
+## Strided batched GEMM
 
-More flexible interfaces such as `cublasGemmStridedBatchedEx()` and `cublasLtMatmul()` are available,  
-but this step uses the simpler FP32 SGEMM API as an optimized library baseline.
+Attention performs the same GEMM independently for every batch and head.
+
+Because the matrices have identical shapes and fixed strides,  
+this step uses `cublasSgemmStridedBatched()` to process all batch/head matrices in a single call.
+
+The implementation stays in FP32 to provide an optimized GEMM baseline before later attention-specific optimizations.
 
 ## Row-major mapping
 
-cuBLAS assumes column-major storage, while the attention tensors are stored in row-major layout.
+cuBLAS uses column-major matrix semantics, while the tensors in this project are stored in row-major layout.
 
-For $QK^\top$, the desired row-major result is
+Instead of explicitly transposing the tensors, the operands are arranged so that cuBLAS computes the equivalent transposed operation.
 
-$$
-S_{\text{row}} = \mathrm{scale} \cdot Q_{\text{row}}K_{\text{row}}^\top.
-$$
+### QKᵀ
 
-The same buffers are interpreted by cuBLAS in column-major form, so the call computes the transposed result:
+The desired row-major operation is:
 
 $$
-S_{\text{row}}^\top = K_{\text{row}}Q_{\text{row}}^\top.
+S_{\text{row}} =
+\mathrm{scale}\cdot
+Q_{\text{row}}K_{\text{row}}^\top.
 $$
 
-This avoids explicit tensor transposes or additional memory copies.
+Its transpose is:
+
+$$
+S_{\text{row}}^\top =
+\mathrm{scale}\cdot
+K_{\text{row}}Q_{\text{row}}^\top.
+$$
 
 ```cuda
 return cublasSgemmStridedBatched(
@@ -51,12 +64,22 @@ return cublasSgemmStridedBatched(
     batch_count);
 ```
 
+No explicit transpose or additional memory copy is required.
+
+### PV
+
 The same layout mapping is used for $PV$:
 
 $$
-O_{\text{row}} = P_{\text{row}}V_{\text{row}}
-\qquad\Longleftrightarrow\qquad
-O_{\text{row}}^\top = V_{\text{row}}^\top P_{\text{row}}^\top.
+O_{\text{row}} =
+P_{\text{row}}V_{\text{row}}
+$$
+
+which is equivalent to:
+
+$$
+O_{\text{row}}^\top =
+V_{\text{row}}^\top P_{\text{row}}^\top.
 $$
 
 ```cuda
@@ -72,55 +95,30 @@ return cublasSgemmStridedBatched(
     batch_count);
 ```
 
-## Measurements
+## Nsight Compute summary
 
-### Nsight Compute profile
+For `B=8, H=16, N=4096, d=64`:
 
-A full Nsight Compute profile was collected on RTX 5090 for the representative FP32 shape `B=8, H=16, N=4096, d=64`.
+| Kernel       | Main observation                                             |
+| ------------ | ------------------------------------------------------------ |
+| cuBLAS `QKᵀ` | naive L1/TEX saturation is removed                           |
+| Softmax      | very low eligible-warp rate and serialized execution remain  |
+| cuBLAS `PV`  | scalar GEMM is replaced by an optimized tiled implementation |
 
-| Kernel       | SM Throughput | L1/TEX |    L2 |  DRAM | Main signal                                                             |
-| ------------ | ------------: | -----: | ----: | ----: | ----------------------------------------------------------------------- |
-| cuBLAS `QKᵀ` |         24.9% |  29.1% | 45.5% | 22.3% | naive L1/TEX saturation removed; remaining latency and occupancy limits |
-| Softmax      |          0.9% |  16.4% | 44.7% | 13.6% | extremely low eligible-warps rate and serialized memory accesses        |
-| cuBLAS `PV`  |         25.2% |  29.0% | 45.5% | 22.3% | similar optimized GEMM behavior                                         |
+The GEMM access behavior improves substantially compared with Step 00.
 
-#### cuBLAS GEMM
+Softmax is unchanged and becomes the next clear kernel-level bottleneck.
 
-Replacing the naive matrix-multiplication kernels with cuBLAS substantially changes the memory behavior.
+The full $(N \times N)$ attention matrix is still materialized between operations, so the standard attention dataflow remains unchanged.
 
-In Step 0, `QKᵀ` reached almost 100% L1/TEX throughput while DRAM throughput was only 2.6%.  
-With cuBLAS, L1/TEX throughput drops to about **29%**, while L2 and DRAM throughput increase to roughly **46% and 22%**.
+Detailed profiler metrics are documented separately:
 
-This does not mean that lower cache utilization is itself the goal.  
-Rather, it shows that the pathological L1/TEX saturation of the naive implementation has disappeared.  
-The tiled cuBLAS kernel reuses data more effectively instead of repeatedly issuing inefficient scalar accesses.
+→ [Nsight Compute Analysis — Step 01](ncu/01_cublas.md)
 
-The GEMM kernels are still not saturating the GPU's peak compute throughput.  
-Nsight Compute reports approximately **0.56 eligible warps per scheduler**, with each scheduler issuing roughly one instruction every **4 cycles**.
+## Conclusion
 
-It also reports a theoretical occupancy of about **58%**, limited by high register usage, while memory latency remains the main source of stalls.
+Replacing the naive matrix multiplications with cuBLAS removes their major implementation inefficiencies.
 
-Therefore, the optimized GEMM is no longer dominated by the severe access-pattern problem seen in the naive implementation,  
-but this FP32 workload still exhibits latency and resource limitations.
+The next step focuses on parallelizing softmax.
 
-#### Softmax
-
-The softmax kernel is unchanged from Step 0 and retains the same bottleneck.
-
-After optimizing the GEMMs with cuBLAS, softmax becomes the next clear optimization target.
-
-#### Overall
-
-cuBLAS removes the severe memory-access inefficiency of the naive matrix-multiplication kernels and reduces the end-to-end latency.
-
-After this optimization, the remaining bottleneck becomes much clearer:  
- the naive softmax kernel has very low instruction-issue efficiency and continues to perform serialized memory accesses.
-
-The fundamental standard-attention dataflow also remains unchanged:
-
-1. `QKᵀ` materializes the full `(N × N)` score matrix.
-2. Softmax repeatedly accesses that matrix.
-3. `PV` reads the normalized `(N × N)` matrix again.
-
-Therefore, cuBLAS improves the efficiency of the GEMM operations,  
-but it does not eliminate the **O(N²) intermediate-memory traffic** that ultimately motivates fused, IO-aware attention.
+The larger $O(N^2)$ intermediate-memory cost remains and is addressed later through fused attention.
