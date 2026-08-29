@@ -144,6 +144,30 @@ TORCH_CHECK(
 
 With `d` divisible by four, each row remains 16-byte aligned for `float4` access.
 
+## Nsight Compute summary
+
+Nsight Compute confirms that the `float4` accesses reduce memory-instruction pressure substantially.
+
+Compared with Step 04:
+
+```text
+Shared-load requests          12.88B →  6.44B
+Shared-load wavefronts       146.09B → 40.80B
+MIO-throttle stall             50.3 → 11.2 cycles / issued inst.
+Instruction-issue interval      7.2 →  4.1 cycles
+SM Throughput                  27.2% → 47.5%
+```
+
+Global loads use all 32 bytes of each memory sector, and Nsight Compute reports zero excessive global sectors.
+
+Vectorization increases register usage from 40 to 65 registers per thread,  
+reducing achieved occupancy from approximately 83% to 50%. Despite the lower occupancy,  
+the kernel is faster because each resident warp spends much less time stalled on the memory-instruction path.
+
+Detailed profiler metrics are documented separately:
+
+→ [Nsight Compute Analysis — Step 05](ncu/05_vectorized_load.md)
+
 ## Remaining bottlenecks
 
 Although memory accesses are now vectorized, the matrix operations are still implemented with conventional FP32 arithmetic.
@@ -156,4 +180,26 @@ In particular:
 * shared-memory access patterns are not yet optimized for bank conflicts
 * tile loading and computation are still serialized
 
-The next step addresses **shared-memory bank conflicts** by changing the shared-memory layout with swizzling.
+The profile still reports an average 6.3-way shared-load bank conflict, with approximately 73.7% of shared-load wavefronts associated with conflicts.
+
+The next step addresses these **shared-memory bank conflicts** by changing the shared-memory layout with swizzling.
+
+## Conclusion
+
+Step 05 changes the access granularity without changing the fused attention algorithm:
+
+```text
+scalar loads
+    ↓
+coalesced float4 loads
+    ↓
+fewer memory instructions
+    ↓
+lower MIO pressure
+    ↓
+2.70× benchmark speedup
+```
+
+However, vectorization reduces the amount of shared-memory work without fixing the row-major bank-mapping problem itself.
+
+Step 06 introduces shared-memory swizzling to address the remaining bank conflicts.
