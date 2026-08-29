@@ -275,7 +275,8 @@ Despite eliminating the $N \times N$ intermediate-memory traffic, Step 04 is slo
 
 The latency increase is not caused by shared-memory bank conflicts alone.
 
-The unfused implementation uses optimized cuBLAS kernels for $QK^\top$ and $PV$, whereas Step 04 performs both matrix operations with scalar arithmetic inside the fused kernel.
+The unfused implementation uses optimized cuBLAS kernels for $QK^\top$ and $PV$,  
+whereas Step 04 performs both matrix operations with scalar arithmetic inside the fused kernel.
 
 The severe shared-memory bank conflicts further reduce the efficiency of this naive implementation.
 
