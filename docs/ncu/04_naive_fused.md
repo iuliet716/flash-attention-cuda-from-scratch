@@ -269,6 +269,27 @@ but the first fused implementation does not yet use the on-chip memory system ef
 
 ---
 
+## Why is Step 04 slower than the unfused version?
+
+Despite eliminating the $N \times N$ intermediate-memory traffic, Step 04 is slower than the preceding unfused implementation.
+
+The latency increase is not caused by shared-memory bank conflicts alone.
+
+The unfused implementation uses optimized cuBLAS kernels for $QK^\top$ and $PV$, whereas Step 04 performs both matrix operations with scalar arithmetic inside the fused kernel.
+
+The severe shared-memory bank conflicts further reduce the efficiency of this naive implementation.
+
+At this stage, the benefit of reduced HBM traffic is therefore outweighed by inefficient matrix computation and on-chip memory access.
+
+Nevertheless, this structural transition is necessary:  
+as long as $QK^\top$, softmax, and $PV$ remain separate kernels, the $N \times N$ attention matrix must be materialized between stages.
+
+Fusion removes that intermediate boundary, allowing later optimizations to improve compute and on-chip data movement without reintroducing the quadratic HBM traffic.
+
+
+
+---
+
 ## Overall
 
 Step 04 successfully introduces the core IO-aware attention structure:
