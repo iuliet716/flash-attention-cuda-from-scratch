@@ -196,8 +196,6 @@ coalesced float4 loads
 fewer memory instructions
     ↓
 lower MIO pressure
-    ↓
-2.70× benchmark speedup
 ```
 
 However, vectorization reduces the amount of shared-memory work without fixing the row-major bank-mapping problem itself.
