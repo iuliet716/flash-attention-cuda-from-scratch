@@ -286,8 +286,6 @@ as long as $QK^\top$, softmax, and $PV$ remain separate kernels, the $N \times N
 
 Fusion removes that intermediate boundary, allowing later optimizations to improve compute and on-chip data movement without reintroducing the quadratic HBM traffic.
 
-
-
 ---
 
 ## Overall
