@@ -197,4 +197,5 @@ shared-load conflicts effectively eliminated
 fewer wavefronts and lower MIO stalls
 ```
 
-Step 07 changes the Q/K/V/O storage path to FP16 while retaining FP32 accumulation, reducing the amount of data moved through global and shared memory.
+Step 07 changes the Q/K/V/O storage path to FP16 while retaining FP32 accumulation,  
+reducing the amount of data moved through global and shared memory.
