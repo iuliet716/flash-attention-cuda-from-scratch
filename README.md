@@ -45,8 +45,8 @@ Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
 | Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
 |---|---|---|---|---|---|---|---|
-| 04 | Naive Fused Attention<br>(SRAM Tiling) | FP32 | PASS | 333.742 ms | - | 1.6 | 0.7% |
-| 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008 ms | 2.76x | 4.5 | 2.0% |
+| 04 | Naive Fused Attention<br>(SRAM Tiling) | FP32 | PASS | 333.742&nbsp;ms | - | 1.6 | 0.7% |
+| 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008&nbsp;ms | 2.76x | 4.5 | 2.0% |
 | 06 | Bank Conflict Avoidance (Swizzling) | FP32 | PASS | 64.687 ms | 1.87x | 8.5 | 3.9% |
 | 07 | Half-Precision (FP16) | FP16 | PASS | 59.268 ms | 1.09x | 9.3 | 4.2% |
 | 08 | WMMA Tensor Cores | FP16 | PASS | 39.471 ms | 1.50x | 13.9 | 6.2% |
