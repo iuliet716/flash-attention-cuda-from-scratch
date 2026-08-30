@@ -333,7 +333,7 @@ def print_results(results, shape, torch_fp32_timing, sdpa_cold,
         )
 
     print(
-        f"| PyTorch SDPA FlashAttention (cold) | FP16 | "
+        f"| PyTorch SDPA FlashAttention | FP16 | "
         f"{sdpa_cold.median:.3f} ms | "
         f"{tflops(*shape, sdpa_cold.median):.1f} |"
     )
