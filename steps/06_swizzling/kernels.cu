@@ -81,7 +81,10 @@ __global__ void fused_attention_kernel(
                 for (int k = 0; k < d4; ++k) {
                     const float4 a = q4[k];
                     const float4 b = k4[swizzle(lane, k)];  // conflict-free read
-                    dot += a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+                    dot += a.x * b.x;
+                    dot += a.y * b.y;
+                    dot += a.z * b.z;
+                    dot += a.w * b.w;
                 }
                 s = dot * scale;
             }
