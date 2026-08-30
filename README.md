@@ -8,8 +8,8 @@ Each optimization step is preserved separately to show how individual design aff
 
 
 # Key Results
-- **3.035 ms** latency and **181.1 TFLOPS**
-- **82.3% of PyTorch SDPA FlashAttention performance**
+- **3.035 ms** latency and **181.1 effective TFLOPS**
+- **82.3% of paired PyTorch SDPA FlashAttention performance**
 
 
 # Benchmark
@@ -45,12 +45,13 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 
 ## Reference
 
-| Reference | dtype | Latency | TFLOPS |
-|---|---|---|---|
+| Reference | dtype | Latency | Effective TFLOPS |
+|---|---|---:|---:|
 | PyTorch matmul + softmax | FP32 | 39.590 ms | 13.9 |
-| PyTorch SDPA FlashAttention | FP16 | 2.421 ms | 227.0 |
+| PyTorch SDPA FlashAttention (initial reference) | FP16 | 2.421 ms | 227.0 |
 
-> vs. SDPA is measured against PyTorch SDPA FlashAttention immediately after each kernel run.
+> `vs. SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.
+> The Reference table reports a separate initial SDPA measurement, so the `2.421 ms` value is not the denominator for every `vs. SDPA` entry.
 
 
 # Kernel Design Highlights
