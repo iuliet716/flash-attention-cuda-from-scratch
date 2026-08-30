@@ -62,7 +62,8 @@ The dominant shared-load conflict from Step 05 is effectively eliminated.
 | Eligible warps / scheduler | 0.53 | 1.51 |
 | Achieved Occupancy | 49.9% | 66.5% |
 
-The result is not simply higher cache throughput. The swizzle removes serialization from the repeatedly executed K-load path, allowing the same mathematical work to move through the SM much more efficiently.
+The result is not simply higher cache throughput.  
+The swizzle removes serialization from the repeatedly executed K-load path, allowing the same mathematical work to move through the SM much more efficiently.
 
 ---
 
