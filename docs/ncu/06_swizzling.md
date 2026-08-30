@@ -63,13 +63,15 @@ The dominant shared-load conflict from Step 05 is effectively eliminated.
 | Achieved Occupancy | 49.9% | 66.5% |
 
 The result is not simply higher cache throughput.  
-The swizzle removes serialization from the repeatedly executed K-load path, allowing the same mathematical work to move through the SM much more efficiently.
+The swizzle removes serialization from the repeatedly executed K-load path,  
+allowing the same mathematical work to move through the SM much more efficiently.
 
 ---
 
 ## Dominant shared-load conflicts removed
 
-Step 05 stored K in a row-major shared-memory layout. During each $QK^\top$ dot-product iteration, lanes accessed the same `float4` column from different rows, mapping those addresses to repeated bank groups.
+Step 05 stored K in a row-major shared-memory layout.  
+During each $QK^\top$ dot-product iteration, lanes accessed the same `float4` column from different rows, mapping those addresses to repeated bank groups.
 
 Nsight Compute reported:
 
@@ -98,7 +100,8 @@ Step 06    10,737,666,083
 
 This is a reduction of approximately 73.7%.
 
-The source still performs the same logical Q and K `float4` loads. The reduction occurs because the shared-memory hardware no longer needs to serialize the K accesses into many additional wavefronts.
+The source still performs the same logical Q and K `float4` loads.  
+The reduction occurs because the shared-memory hardware no longer needs to serialize the K accesses into many additional wavefronts.
 
 This directly validates the purpose of the XOR layout.
 
@@ -118,11 +121,13 @@ Average conflict                     4.8-way
 Conflict share of wavefronts            16.03%
 ```
 
-The shared-store conflict count rises from approximately 105.6 million in Step 05 to 205.1 million in Step 06. This is consistent with the extra address permutation used while writing the swizzled K tile.
+The shared-store conflict count rises from approximately 105.6 million in Step 05 to 205.1 million in Step 06.  
+This is consistent with the extra address permutation used while writing the swizzled K tile.
 
 The trade-off is strongly favorable because the K tile is written once and then read repeatedly by the Q warps during $QK^\top$.
 
-The swizzle removes approximately 30.07 billion load conflicts while adding about 99.5 million store conflicts. Across all shared operations, the total bank-conflict count falls from approximately 30.17 billion to 0.21 billion.
+The swizzle removes approximately 30.07 billion load conflicts while adding about 99.5 million store conflicts.  
+Across all shared operations, the total bank-conflict count falls from approximately 30.17 billion to 0.21 billion.
 
 The remaining store pattern is therefore worth noting, but it does not invalidate the optimization.
 
@@ -156,7 +161,8 @@ In Step 06, MIO throttle accounts for approximately:
 
 of the average cycles between issued instructions, compared with about 45.4% in Step 05.
 
-The MIO path remains important because the kernel still performs a large number of shared-memory and special-function operations. The lower stall duration shows that removing bank-conflict serialization makes that path substantially easier to feed.
+The MIO path remains important because the kernel still performs a large number of shared-memory and special-function operations.  
+The lower stall duration shows that removing bank-conflict serialization makes that path substantially easier to feed.
 
 ---
 
@@ -231,7 +237,8 @@ Achieved Occupancy       49.9% → 66.5%
 
 This additional residency helps the scheduler hide the stalls that remain.
 
-The occupancy increase should not be described as an inherent consequence of XOR swizzling. It is a code-generation effect of these compiled kernels, but it contributes to the measured Step 05-to-Step 06 improvement.
+The occupancy increase should not be described as an inherent consequence of XOR swizzling.  
+It is a code-generation effect of these compiled kernels, but it contributes to the measured Step 05-to-Step 06 improvement.
 
 ---
 
@@ -278,7 +285,8 @@ The kernel now serves the same logical shared-memory operands in much less time,
 so the on-chip path sustains a higher rate of useful work rather than spending cycles serializing conflicting K loads.
 
 The high reported SM throughput also does not imply that FP32 arithmetic is saturated.  
-Nsight Compute's roofline section reports only approximately 8% of peak FP32 performance, and its compute analysis states that the arithmetic pipelines remain under-utilized.
+Nsight Compute's roofline section reports only approximately 8% of peak FP32 performance,  
+and its compute analysis states that the arithmetic pipelines remain under-utilized.
 
 Step 06 should therefore be described as limited by the on-chip memory/MIO path, not by DRAM bandwidth or peak FP32 throughput.
 
