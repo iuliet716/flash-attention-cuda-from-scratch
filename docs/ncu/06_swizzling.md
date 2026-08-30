@@ -135,7 +135,7 @@ The remaining store pattern is therefore worth noting, but it does not invalidat
 
 ## MIO pipeline pressure
 
-MIO throttle remains the largest warp-stall category, but it decreases after removing the shared-load conflicts:
+MIO throttle still accounts for the largest share of warp-stall cycles, but it decreases after removing the shared-load conflicts:
 
 ```text
 MIO-throttle stall / issued instruction
