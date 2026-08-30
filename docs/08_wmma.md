@@ -317,25 +317,27 @@ The explicit XOR indexing used in Step 06 and Step 07 is therefore no longer use
 
 Nsight Compute confirms that Step 08 reaches the Tensor Core pipeline, but also shows that the Tensor Cores are lightly utilized.
 
-| Metric                     | Step 07 | Step 08 |
-| -------------------------- | ------: | ------: |
-| Tensor-pipe utilization    |    0.0% |    2.90% |
-| Dynamic shared memory / block | 9,216 B | 33,472 B |
-| Achieved occupancy         |   66.5% |   16.6% |
-| Eligible warps / scheduler |    2.26 |    0.12 |
-| Issue-active cycles        |   67.1% |   10.9% |
+| Metric                         |  Step 07  |  Step 08  |
+| ------------------------------ | --------: | -------: |
+| Tensor-pipe utilization        |    0.0%   |   2.90%  |
+| Dynamic shared memory / block  |  9,216 B  | 33,472 B |
+| Achieved occupancy             |   66.5%   |   16.6%  | 
+| Eligible warps / scheduler     |    2.26   |    0.12  |
+| Issue-active cycles            |   67.1%   |   10.9%  |
 
 The nonzero Tensor-pipe value verifies that the generated kernel executes WMMA/HMMA instructions.  
 It does not indicate that the Tensor Cores are saturated.
 
 The larger `BR = 16` tile also lets each block reuse K and V across twice as many query rows as Step 07.  
-Global-load requests and sectors therefore fall by approximately half, but this is a tile-reuse effect of the overall redesign rather than a Tensor Core effect alone.
+Global-load requests and sectors therefore fall by approximately half,  
+but this is a tile-reuse effect of the overall redesign rather than a Tensor Core effect alone.
 
 The new shared-memory intermediates and padded Q/K/V tiles increase the per-block footprint enough to limit each SM to two blocks.  
 With four warps per block, this leaves only eight resident warps per SM.
 
 Barrier stalls then become the largest warp-stall reason at 8.88 cycles per issued instruction.  
-The main imbalance is the warp-0-only softmax: the other three warps wait at the following block-wide barrier.
+The main imbalance is the warp-0-only softmax:  
+the other three warps wait at the following block-wide barrier.
 
 Detailed profiler metrics are documented separately:
 
@@ -389,7 +391,8 @@ The profile shows two additional costs:
 * the unpadded S, P, and O layouts, together with WMMA fragment accesses, produce substantial shared-memory bank conflicts
 
 Nsight Compute reports an average 11.5-way conflict for shared loads and 9.1-way conflict for shared stores.  
-These values describe the complete redesigned access pattern; they should not be attributed to the removal of XOR swizzling alone.
+These values describe the complete redesigned access pattern;  
+they should not be attributed to the removal of XOR swizzling alone.
 
 Step 08 therefore introduces Tensor Core computation, but does not yet keep the Tensor pipeline busy.  
 The next step reorganizes the warp mapping so that the softmax rows and WMMA tiles are distributed across all warps.
@@ -408,7 +411,7 @@ FP32 accumulation
 
 The online-softmax formulation remains unchanged.
 
-The profile verifies that Tensor Core instructions are executed, while also showing that the overall WMMA redesign introduces a larger shared-memory footprint, low occupancy, warp-level work imbalance, and conflict-heavy shared accesses.
+The profile verifies that Tensor Core instructions are executed,  
+while also showing that the overall WMMA redesign introduces a larger shared-memory footprint, low occupancy, warp-level work imbalance, and conflict-heavy shared accesses.
 
 The measured change from Step 07 must therefore be interpreted as the combined effect of WMMA, new tile geometry, a different warp mapping, and a different shared-memory layout.
-
