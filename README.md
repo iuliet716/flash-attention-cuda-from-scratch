@@ -34,7 +34,7 @@ Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
 ## Track A: Unfused kernel
 
-| Step | Technique | dtype | Correctness | Latency | Speedup | TFLOPS | SDPA&nbsp;% |
+| Step | Technique | dtype | Correctness | Latency | Speedup | TFLOPS | %&nbsp;SDPA |
 |---|---|---|---|---|---|---|---|
 | 00 | Naive Standard Attention | FP32 | PASS | 261.236 ms | - | 2.1 | 0.9% |
 | 01 | cuBLAS GEMM | FP32 | PASS | 67.794 ms | 3.85x | 8.1 | 3.6% |
@@ -43,7 +43,7 @@ Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
 ## Track B: Fused FlashAttention Kernel
 
-| Step | Technique | dtype | Correctness | Latency | Speedup | TFLOPS | SDPA&nbsp;% |
+| Step | Technique | dtype | Correctness | Latency | Speedup | TFLOPS | %&nbsp;SDPA |
 |---|---|---|---|---|---|---|---|
 | 04 | Naive Fused Attention<br>(SRAM Tiling) | FP32 | PASS | 333.742&nbsp;ms | - | 1.6 | 0.7% |
 | 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008&nbsp;ms | 2.76x | 4.5 | 2.0% |
