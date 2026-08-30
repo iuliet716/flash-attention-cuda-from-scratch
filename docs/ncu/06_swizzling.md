@@ -320,4 +320,4 @@ high on-chip memory/MIO utilization
 FP32 storage and conventional FP32 matmul loops
 ```
 
-Step 07 changes Q, K, V, and O storage to FP16 while retaining FP32 accumulation. Step 08 then introduces Tensor Core execution.
+Step 07 changes Q, K, V, and O storage to FP16 while retaining FP32 accumulation.
