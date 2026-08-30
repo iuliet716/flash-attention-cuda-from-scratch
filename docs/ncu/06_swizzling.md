@@ -117,8 +117,8 @@ Nsight Compute now flags the shared-store path:
 Shared-store requests          268,697,600
 Shared-store wavefronts      1,279,905,797
 Shared-store bank conflicts    205,115,397
-Average conflict                     4.8-way
-Conflict share of wavefronts            16.03%
+Average conflict                   4.8-way
+Conflict share of wavefronts        16.03%
 ```
 
 The shared-store conflict count rises from approximately 105.6 million in Step 05 to 205.1 million in Step 06.  
