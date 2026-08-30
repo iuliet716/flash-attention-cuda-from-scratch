@@ -5,19 +5,18 @@
 #include <stdint.h>
 
 #include <cuda_fp16.h>
-#include <cuda_pipeline.h>
 #include <cuda_runtime.h>
 
 constexpr int WARPS = 4;        // warps per block
 constexpr int BR = WARPS * 16;  // Q rows per block
 constexpr int BC = 64;          // K, V rows per tile
-constexpr int STAGES = 2;       // double buffering
+constexpr int STAGES = 1;       // one synchronous K/V stage
 
 // 32-byte row padding for alignment and bank-conflict reduction
 constexpr int SKEW = 16;
 
-// m16n8k16 tensor-core MMA with explicit register layout.
-// each thread holds values from two rows, allowing softmax and O to stay in registers.
+// m16n8k16 tensor-core MMA with an explicit register layout
+// each thread holds two rows, so softmax and O can stay in registers
 __device__ __forceinline__ void mma_16816(
     float* acc, const uint32_t* a, const uint32_t* b)
 {
@@ -54,9 +53,9 @@ __global__ void fused_attention_kernel(
 {
     // register-resident attention:
     //   registers: Q, S, P, O, m, l
-    //   shared memory: K[2], V[2]
+    //   shared memory: K, V
     //
-    // D is fixed at compile time to keep register accumulator sizes static.
+    // D is fixed at compile time to keep the register accumulators static
     constexpr int LDH = D + SKEW;  // K, V row stride in halves
     constexpr int D8 = D / 8;      // row length in 8-half (16-byte) chunks
     constexpr int LDH8 = LDH / 8;  // row stride in 8-half (16-byte) chunks
@@ -66,7 +65,7 @@ __global__ void fused_attention_kernel(
     constexpr int PK = BC / 16;    // PV steps
 
     extern __shared__ __align__(16) __half smem[];
-    __half* Ks = smem;  
+    __half* Ks = smem;
     __half* Vs = Ks + STAGES * BC * LDH;
 
     const int tid = threadIdx.x;
@@ -109,8 +108,8 @@ __global__ void fused_attention_kernel(
 #pragma unroll
         for (int e = 0; e < 4; ++e) o[jo][e] = 0.0f;
 
-    // Async K, V tile load into one of the two shared-memory stages
-    auto load_kv_async = [&](int stg, int tile0) {
+    // cooperative K, V tile load; zero-fill out-of-range rows
+    auto load_kv_sync = [&](int stg, int tile0) {
         float4* Ks4 = reinterpret_cast<float4*>(Ks + stg * BC * LDH);
         float4* Vs4 = reinterpret_cast<float4*>(Vs + stg * BC * LDH);
         for (int idx = tid; idx < BC * D8; idx += blockDim.x) {
@@ -118,10 +117,8 @@ __global__ void fused_attention_kernel(
             const int c = idx % D8;
             const int gr = tile0 + r;
             if (gr < N) {
-                __pipeline_memcpy_async(
-                    &Ks4[r * LDH8 + c], &Kb4[(size_t)gr * D8 + c], sizeof(float4));
-                __pipeline_memcpy_async(
-                    &Vs4[r * LDH8 + c], &Vb4[(size_t)gr * D8 + c], sizeof(float4));
+                Ks4[r * LDH8 + c] = Kb4[(size_t)gr * D8 + c];
+                Vs4[r * LDH8 + c] = Vb4[(size_t)gr * D8 + c];
             } else {
                 Ks4[r * LDH8 + c] = zero4;
                 Vs4[r * LDH8 + c] = zero4;
@@ -129,24 +126,12 @@ __global__ void fused_attention_kernel(
         }
     };
 
-    // prefetch the first K, V tile
-    load_kv_async(0, 0);
-    __pipeline_commit();
-
     const int n_tiles = (N + BC - 1) / BC;
     for (int t = 0; t < n_tiles; ++t) {
-        const int stage = t % STAGES;
+        constexpr int stage = 0;
         const int tile = t * BC;
 
-        if (t + 1 < n_tiles) {
-            const int next_stage = (t + 1) % STAGES;
-            const int next_tile = tile + BC;
-            load_kv_async(next_stage, next_tile);
-            __pipeline_commit();
-            __pipeline_wait_prior(1);
-        } else {
-            __pipeline_wait_prior(0);
-        }
+        load_kv_sync(stage, tile);
         __syncthreads();
 
         const __half* Kst = Ks + stage * BC * LDH;
@@ -225,7 +210,7 @@ __global__ void fused_attention_kernel(
             o[jo][3] *= alpha[1];
         }
 
-        // O += PV using P from registers
+        // add the current PV contribution, with P read from registers
 #pragma unroll
         for (int kk = 0; kk < PK; ++kk) {
             // pack two 16x8 P blocks into one 16x16 MMA operand
@@ -242,7 +227,7 @@ __global__ void fused_attention_kernel(
                 mma_16816(o[jo], pa, b);
             }
         }
-        __syncthreads();  // protect K/V before buffer reuse
+        __syncthreads();  // protect K/V before the single stage is overwritten
     }
 
     // normalization + write the output (first and only HBM write)
@@ -268,7 +253,7 @@ static void launch_impl(
 {
     const int threads = WARPS * 32;
     const dim3 grid((N + BR - 1) / BR, batch_count);
-    // K, V double buffer only
+    // one K tile and one V tile in shared memory; no prefetch pipeline yet
     const size_t smem_bytes = (size_t)STAGES * 2 * BC * (D + SKEW) * sizeof(__half);
     if (smem_bytes > 48 * 1024) {
         // request a larger dynamic shared memory limit when needed

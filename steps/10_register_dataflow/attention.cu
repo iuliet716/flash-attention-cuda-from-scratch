@@ -32,9 +32,8 @@ torch::Tensor attention_forward(
     const int H = static_cast<int>(q_contig.size(1));
     const int N = static_cast<int>(q_contig.size(2));
     const int d = static_cast<int>(q_contig.size(3));
-    TORCH_CHECK(d <= FUSED_D_MAX, "head dim must be <= ", FUSED_D_MAX, ", got ", d);
-    // current WMMA tiling supports head dimensions in multiples of 64
-    TORCH_CHECK(d % 64 == 0, "head dim must be a multiple of 64, got ", d);
+    // register accumulator sizes are fixed at compile time for d = 64 and 128
+    TORCH_CHECK(d == 64 || d == 128, "head dim must be 64 or 128, got ", d);
     const float scale = 1.0f / std::sqrt(static_cast<float>(d));
     const int batch_count = B * H;
 

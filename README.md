@@ -8,8 +8,8 @@ Each optimization step is preserved separately to show how individual design aff
 
 
 # Key Results
-- **3.273 ms** latency and **168.0 TFLOPS**
-- **76.8% of PyTorch SDPA FlashAttention performance**
+- **3.035 ms** latency and **181.1 TFLOPS**
+- **82.3% of PyTorch SDPA FlashAttention performance**
 
 
 # Benchmark
@@ -24,29 +24,33 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 
 ## Track A: Unfused kernel
 
-| Step | Technique | dtype | Latency | vs. prev. | TFLOPS |
-|---|---|---|---|---|---|
-| 00 | Naive Standard Attention | FP32 | 253.136 ms | - | 2.2 |
-| 01 | cuBLAS GEMM | FP32 | 64.376 ms | 3.93x | 8.5 |
-| 02 | Warp-reduction Softmax | FP32 | 28.690 ms | 2.24x | 19.2 |
-| 03 | Online Softmax | FP32 | 30.071 ms | 0.95x | 18.3 |
+| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
+|---|---|---|---|---|---|---|---|
+| 00 | Naive Standard Attention | FP32 | PASS | 261.236 ms | - | 2.1 | 0.9% |
+| 01 | cuBLAS GEMM | FP32 | PASS | 67.794 ms | 3.85x | 8.1 | 3.6% |
+| 02 | Warp-reduction Softmax | FP32 | PASS | 30.709 ms | 2.21x | 17.9 | 8.0% |
+| 03 | Online Softmax | FP32 | PASS | 31.754 ms | 0.97x | 17.3 | 7.7% |
 
 ## Track B: Fused FlashAttention Kernel
 
-| Step | Technique | dtype | Latency | vs. prev. | TFLOPS | vs. SDPA |
-|---|---|---|---|---|---|---|
-| 04 | Naive Fused Attention (SRAM Tiling) | FP32 | 326.611 ms | - | 1.7 | 0.7% |
-| 05 | Coalescing + Vectorized Load | FP32 | 120.939 ms | 2.70x | 4.5 | 2.0% |
-| 06 | Bank Conflict Avoidance (Swizzling) | FP32 | 64.736 ms | 1.87x | 8.5 | 3.9% |
-| 07 | Half-Precision (FP16) | FP16 | 57.156 ms | 1.13x | 9.6 | 4.4% |
-| 08 | WMMA Tensor Cores | FP16 | 37.782 ms | 1.51x | 14.6 | 6.5% |
-| 09 | 2D Warp Tiling | FP16 | - | - | - | - |
-| 10 | Double Buffering | FP16 | 23.542 ms | 1.60x | 23.4 | 10.5% |
-| 11 | Register-Resident Accumulators | FP16 | **3.273 ms** | 7.19x | **168.0** | **76.8%** |
+| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
+|---|---|---|---|---|---|---|---|
+| 04 | Naive Fused Attention (SRAM Tiling) | FP32 | PASS | 333.742 ms | - | 1.6 | 0.7% |
+| 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008 ms | 2.76x | 4.5 | 2.0% |
+| 06 | Bank Conflict Avoidance (Swizzling) | FP32 | PASS | 64.687 ms | 1.87x | 8.5 | 3.9% |
+| 07 | Half-Precision (FP16) | FP16 | PASS | 59.268 ms | 1.09x | 9.3 | 4.2% |
+| 08 | WMMA Tensor Cores | FP16 | PASS | 39.471 ms | 1.50x | 13.9 | 6.2% |
+| 09 | Split-Q Warp Partitioning | FP16 | PASS | 32.298 ms | 1.22x | 17.0 | 7.6% |
+| 10 | Warp-local Register Dataflow | FP16 | PASS | **3.035 ms** | 10.64x | **181.1** | **82.3%** |
 
-> All reported kernels pass correctness checks against PyTorch SDPA.
+## Reference
 
-> % SDPA is measured against PyTorch SDPA FlashAttention immediately after each kernel run.
+| Reference | dtype | Latency | TFLOPS |
+|---|---|---|---|
+| PyTorch matmul + softmax | FP32 | 39.590 ms | 13.9 |
+| PyTorch SDPA FlashAttention | FP16 | 2.421 ms | 227.0 |
+
+> vs. SDPA is measured against PyTorch SDPA FlashAttention immediately after each kernel run.
 
 
 # Kernel Design Highlights
@@ -68,11 +72,11 @@ Reduce shared-memory bank conflicts during tiled matrix operations.
 ### Tensor Core Acceleration
 Use FP16 WMMA operations for QKᵀ and PV matrix multiplication.
 
-### Double Buffering
-Overlap tile loading with computation to reduce memory stalls.
+### Split-Q Warp Partitioning
+Give each warp its own 16-row Q/O slice while the block shares the K/V tile.
 
-### Register-Resident Accumulation
-Keep output accumulators in registers to minimize shared-memory traffic.
+### Warp-local Register Dataflow
+Keep Q, S/P, O, and softmax state in the owner warp's registers instead of shared memory.
 
 
 # Limitations & Roadmap
