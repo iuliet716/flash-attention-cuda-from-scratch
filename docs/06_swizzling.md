@@ -130,3 +130,73 @@ For each dot-product iteration:
 Therefore, this step swizzles only the $K$ tile.
 
 The Q and V layouts remain unchanged.
+
+## Nsight Compute summary
+
+Nsight Compute confirms that the XOR layout removes the dominant shared-load conflict from Step 05.
+
+```text
+Shared-load bank conflicts    30.07B →   0.25M
+Shared-load wavefronts        40.80B →  10.74B
+MIO-throttle stall              11.2 →    6.8 cycles / issued inst.
+Instruction-issue interval      ~4.1 →   ~2.0 cycles
+Eligible warps / scheduler       0.53 →   1.51
+SM Throughput                   47.5% →  93.4%
+```
+
+The shared-load conflict count falls by more than 99.999%, while the number of shared-load wavefronts falls by approximately 73.7%.
+
+Introducing the swizzled indexing also changes compiler code generation.
+
+```cuda
+// Step 05
+k4[k]
+
+// Step 06
+k4[k ^ (lane % 8)]
+```
+
+In this build, register usage decreases from 65 to 64 registers per thread,  
+crossing an allocation boundary and increasing achieved occupancy from 49.9% to 66.5%.
+This is an implementation-specific side effect rather than a general property of XOR swizzling.
+
+Detailed profiler metrics are documented separately:
+
+→ [Nsight Compute Analysis — Step 06](ncu/06_swizzling.md)
+
+## Remaining bottlenecks
+
+The dominant shared-load conflicts are removed, but the kernel is not yet compute-efficient.
+
+In particular:
+
+* MIO throttle remains the largest warp-stall category
+* smaller shared-store bank-conflict cost remains
+* Q, K, V, and O are still stored in FP32
+* $QK^\top$ and $PV$ still use conventional FP32 multiply-add loops
+* no Tensor Cores are used
+* tile loading and computation are still serialized
+
+The profile reports approximately 205.1 million shared-store bank conflicts, compared with only 0.25 million shared-load conflicts.  
+This is far smaller than the 30.07 billion load conflicts removed by swizzling,  
+but shared stores are now the main remaining bank-conflict issue reported by Nsight Compute.
+
+## Conclusion
+
+Step 06 changes the physical K-tile layout without changing the attention computation:
+
+```text
+row-major K tile
+        ↓
+XOR-swizzled float4 columns
+        ↓
+different bank group per lane
+        ↓
+shared-load conflicts effectively eliminated
+        ↓
+fewer wavefronts and lower MIO stalls
+```
+
+This explains the improvement from 120.939 ms in Step 05 to 64.736 ms in Step 06.
+
+Step 07 changes the Q/K/V/O storage path to FP16 while retaining FP32 accumulation, reducing the amount of data moved through global and shared memory.
