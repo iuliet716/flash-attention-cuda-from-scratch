@@ -8,7 +8,7 @@ Each optimization step is preserved separately to show how individual design aff
 
 
 # Key Results
-- **3.035 ms** latency and **181.1 effective TFLOPS**
+- **3.035 ms** latency and **181.1 TFLOPS**
 - **82.3% of paired PyTorch SDPA FlashAttention performance**
 
 
@@ -22,19 +22,19 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 
 (B, H, N, d) = (8, 16, 4096, 64)
 
-Effective TFLOPS reports algorithmic attention throughput:
+TFLOPS reports effective algorithmic attention throughput:
 
 $$
 \mathrm{TFLOPS}_{\mathrm{effective}} =
 \frac{4 B H N^2 d}{\mathrm{latency}}.
 $$
 
-It counts the two attention matrix multiplications ($QK^\top$ and $PV$) and is not a hardware-counter measurement of executed FLOPs.
+Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
 
 ## Track A: Unfused kernel
 
-| Step | Technique | dtype | Correctness | Latency | vs. prev. | Effective TFLOPS | vs. SDPA |
+| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
 |---|---|---|---|---|---|---|---|
 | 00 | Naive Standard Attention | FP32 | PASS | 261.236 ms | - | 2.1 | 0.9% |
 | 01 | cuBLAS GEMM | FP32 | PASS | 67.794 ms | 3.85x | 8.1 | 3.6% |
@@ -43,7 +43,7 @@ It counts the two attention matrix multiplications ($QK^\top$ and $PV$) and is n
 
 ## Track B: Fused FlashAttention Kernel
 
-| Step | Technique | dtype | Correctness | Latency | vs. prev. | Effective TFLOPS | vs. SDPA |
+| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
 |---|---|---|---|---|---|---|---|
 | 04 | Naive Fused Attention (SRAM Tiling) | FP32 | PASS | 333.742 ms | - | 1.6 | 0.7% |
 | 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008 ms | 2.76x | 4.5 | 2.0% |
