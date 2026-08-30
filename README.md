@@ -22,9 +22,19 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 
 (B, H, N, d) = (8, 16, 4096, 64)
 
+Effective TFLOPS reports algorithmic attention throughput:
+
+$$
+\mathrm{TFLOPS}_{\mathrm{effective}} =
+\frac{4 B H N^2 d}{\mathrm{latency}}.
+$$
+
+It counts the two attention matrix multiplications ($QK^\top$ and $PV$) and is not a hardware-counter measurement of executed FLOPs.
+
+
 ## Track A: Unfused kernel
 
-| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
+| Step | Technique | dtype | Correctness | Latency | vs. prev. | Effective TFLOPS | vs. SDPA |
 |---|---|---|---|---|---|---|---|
 | 00 | Naive Standard Attention | FP32 | PASS | 261.236 ms | - | 2.1 | 0.9% |
 | 01 | cuBLAS GEMM | FP32 | PASS | 67.794 ms | 3.85x | 8.1 | 3.6% |
@@ -33,7 +43,7 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 
 ## Track B: Fused FlashAttention Kernel
 
-| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
+| Step | Technique | dtype | Correctness | Latency | vs. prev. | Effective TFLOPS | vs. SDPA |
 |---|---|---|---|---|---|---|---|
 | 04 | Naive Fused Attention (SRAM Tiling) | FP32 | PASS | 333.742 ms | - | 1.6 | 0.7% |
 | 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008 ms | 2.76x | 4.5 | 2.0% |
@@ -41,7 +51,10 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 | 07 | Half-Precision (FP16) | FP16 | PASS | 59.268 ms | 1.09x | 9.3 | 4.2% |
 | 08 | WMMA Tensor Cores | FP16 | PASS | 39.471 ms | 1.50x | 13.9 | 6.2% |
 | 09 | Split-Q Warp Partitioning | FP16 | PASS | 32.298 ms | 1.22x | 17.0 | 7.6% |
-| 10 | Warp-local Register Dataflow | FP16 | PASS | **3.035 ms** | 10.64x | **181.1** | **82.3%** |
+| 10 | [Warp-local Register Dataflow](./docs/10_register_dataflow.md) | FP16 | PASS | **3.035 ms** | 10.64x | **181.1** | **82.3%** |
+
+The large Step 09 → Step 10 transition is analyzed with profiler counters in
+[Nsight Compute Analysis — Step 10](./docs/ncu/10_register_dataflow.md).
 
 ## Reference
 
@@ -50,7 +63,7 @@ Median of 50 iterations after 10 warm-up runs; fast math enabled; TF32 disabled;
 | PyTorch matmul + softmax | FP32 | 39.590 ms | 13.9 |
 | PyTorch SDPA FlashAttention (initial reference) | FP16 | 2.421 ms | 227.0 |
 
-> `vs. SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.
+> `vs. SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.  
 > The Reference table reports a separate initial SDPA measurement, so the `2.421 ms` value is not the denominator for every `vs. SDPA` entry.
 
 
@@ -104,5 +117,8 @@ $ python benchmark.py
   # python benchmark.py --preset llm
   # python benchmark.py -B 8 -H 16 -N 4096 -d 64
 ```
+
+Nsight Compute profiling methodology and reproduction commands are documented in
+[docs/ncu/README.md](./docs/ncu/README.md).
 
 
