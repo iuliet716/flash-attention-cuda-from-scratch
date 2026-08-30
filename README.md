@@ -34,7 +34,7 @@ Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
 ## Track A: Unfused kernel
 
-| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
+| Step | Technique | dtype | Correctness | Latency | Speedup | TFLOPS | % SDPA |
 |---|---|---|---|---|---|---|---|
 | 00 | Naive Standard Attention | FP32 | PASS | 261.236 ms | - | 2.1 | 0.9% |
 | 01 | cuBLAS GEMM | FP32 | PASS | 67.794 ms | 3.85x | 8.1 | 3.6% |
@@ -43,7 +43,7 @@ Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
 ## Track B: Fused FlashAttention Kernel
 
-| Step | Technique | dtype | Correctness | Latency | vs. prev. | TFLOPS | vs. SDPA |
+| Step | Technique | dtype | Correctness | Latency | Speedup | TFLOPS | % SDPA |
 |---|---|---|---|---|---|---|---|
 | 04 | Naive Fused Attention<br>(SRAM Tiling) | FP32 | PASS | 333.742&nbsp;ms | - | 1.6 | 0.7% |
 | 05 | Coalescing + Vectorized Load | FP32 | PASS | 121.008&nbsp;ms | 2.76x | 4.5 | 2.0% |
@@ -63,8 +63,8 @@ The large Step 09 → Step 10 transition is analyzed with profiler counters in
 | PyTorch matmul + softmax | FP32 | 39.590 ms | 13.9 |
 | PyTorch SDPA FlashAttention (initial reference) | FP16 | 2.421 ms | 227.0 |
 
-> `vs. SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.  
-> The Reference table reports a separate initial SDPA measurement, so the `2.421 ms` value is not the denominator for every `vs. SDPA` entry.
+> `% SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.  
+> The Reference table reports a separate initial SDPA measurement, so the `2.421 ms` value is not the denominator for every `% SDPA` entry.
 
 
 # Kernel Design Highlights
