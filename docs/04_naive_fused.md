@@ -217,7 +217,7 @@ Detailed profiler metrics are documented separately:
 
 > **Note**  
 > DRAM throughput is low in both Step 00 and Step 04, but for different reasons.  
-> inefficient memory access in Step 00, while Step 04 substantially reduces intermediate HBM traffic and shifts the bottleneck on-chip.
+> inefficient global memory access in Step 00, versus reduced HBM traffic after fusion in Step 04.
 
 ## Conclusion
 
