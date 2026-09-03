@@ -102,9 +102,9 @@ For `B=8, H=16, N=4096, d=64`:
 | Softmax | only 1.0% SM throughput and extremely low eligible-warp rate                           |
 | `PV`    | high SM/L1 utilization, but significant memory-dependency stalls remain                |
 
-The important point is that the baseline is **not simply limited by raw DRAM bandwidth**.
+The baseline is **not simply DRAM-bandwidth bound**.
 
-Instead, it suffers from a combination of inefficient memory accesses, insufficient parallelism, long dependency chains, and lack of explicit data reuse.
+Its performance is limited by inefficient memory access, low parallelism, long dependency chains, and poor data reuse.
 
 Detailed profiler metrics and stall analysis are documented separately:
 
@@ -114,8 +114,8 @@ Detailed profiler metrics and stall analysis are documented separately:
 
 The naive implementation establishes the baseline and exposes the two problems that drive the following optimizations:
 
-* inefficient standalone kernels,
-* and repeated movement of the $N \times N$ attention matrix through device memory.
+* inefficient scalar kernels
+* repeated global-memory reads and writes of the $N \times N$ attention matrix
 
 The next steps first optimize the individual operations before moving toward tiled, fused attention that keeps intermediate state on chip.
 
