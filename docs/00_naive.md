@@ -102,9 +102,13 @@ For `B=8, H=16, N=4096, d=64`:
 | Softmax | 1.0% SM throughput and ~0.02 eligible warps/scheduler             |
 | `PV`    | 90% SM/L1 utilization with ~58% Long Scoreboard stalls           |
 
-The baseline is **not simply DRAM-bandwidth bound**.
+For QKᵀ, low DRAM throughput does not indicate efficient memory use:  
+inefficient transactions saturate the L1/TEX path before DRAM bandwidth is fully utilized.
 
-Its performance is limited by inefficient memory access, low parallelism, long dependency chains, and poor data reuse.
+Softmax instead suffers from low scheduler eligibility and long per-thread sequential work,  
+while PV achieves high utilization but still incurs significant memory-dependency stalls.
+
+The baseline is therefore not simply DRAM-bandwidth bound; each kernel is limited by a different part of the execution and memory path.
 
 Detailed profiler metrics and stall analysis are documented separately:
 
