@@ -33,7 +33,7 @@ A full Nsight Compute metric set was collected for each kernel.
 | Kernel  | SM Throughput | L1/TEX |    L2 |  DRAM | Main signal                                                 |
 | ------- | ------------: | -----: | ----: | ----: | ----------------------------------------------------------- |
 | `QKᵀ`   |         22.5% |  99.6% | 10.4% |  2.6% | L1/TEX saturation and inefficient memory transactions       |
-| Softmax |          1.0% |  18.4% | 37.2% | 12.8% | latency- and serialization-limited execution                |
+| Softmax |          1.0% |  18.4% | 37.2% | 12.8% | low scheduler eligibility with sequential per-thread work   |
 | `PV`    |         90.0% |  90.4% | 15.2% |  9.1% | high utilization with significant memory-dependency stalls  |
 
 Each kernel exhibits a different bottleneck.
@@ -52,14 +52,12 @@ DRAM Throughput      2.6%
 ```
 
 L1/TEX throughput is nearly saturated while DRAM throughput remains low,  
-indicating that raw DRAM bandwidth is not the bottleneck.
+suggesting that inefficient memory accesses limit the kernel before DRAM bandwidth is fully utilized.
 
 Nsight Compute also reports:
 > Only 4 of 32 bytes per sector are utilized.
 
-This indicates inefficient memory transactions.
-
-Therefore, QKᵀ is likely limited by inefficient memory accesses that place pressure on L1/TEX, rather than DRAM bandwidth.
+This indicates inefficient memory transactions that place heavy pressure on the L1/TEX path rather than on raw DRAM bandwidth.
 
 ## Softmax 
 
@@ -78,7 +76,7 @@ Nsight Compute also reports approximately:
 
 Each thread processes an entire row sequentially through `max`, `sum-exp`, and `normalization` passes.  
 
-Together, these results indicate that the kernel is primarily limited by latency and serialized execution.
+Together, these results indicate poor latency hiding from long per-thread sequential work.
 
 ## PV
 
@@ -104,4 +102,6 @@ PV is better utilized than the other baseline kernels, but it can still be impro
 
 The baseline has different bottlenecks across its three kernels, rather than a single DRAM-bandwidth limitation.
 
-These observations motivate the following steps: optimized GEMM, warp-level softmax, and eventually tiled fused attention.
+These observations motivate optimized GEMM and warp-level softmax.
+
+However, the $O(N^2)$ traffic from materializing the attention matrix remains and is addressed by tiled fusion.
