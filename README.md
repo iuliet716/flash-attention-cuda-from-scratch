@@ -1,7 +1,7 @@
 # Overview
-This project implements FlashAttention from scratch in CUDA.  
-The implementation starts from naive attention and is progressively optimized step by step.
+This project implements FlashAttention from scratch in CUDA. 
 
+The implementation starts from naive attention and is progressively optimized step by step.  
 Each optimization step is preserved separately to show how individual design affects performance.
 
 See [docs](./docs/README.md) for detailed design notes and Nsight Compute analysis.
