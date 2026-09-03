@@ -52,7 +52,7 @@ DRAM Throughput      2.6%
 ```
 
 L1/TEX throughput is nearly saturated while DRAM throughput remains low,  
-suggesting that inefficient memory accesses limit the kernel before DRAM bandwidth is fully utilized.
+suggesting that **inefficient memory accesses limit the kernel before DRAM bandwidth is fully utilized.**
 
 Nsight Compute also reports:
 > Only 4 of 32 bytes per sector are utilized.
