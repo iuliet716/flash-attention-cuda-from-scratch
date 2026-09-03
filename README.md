@@ -58,7 +58,7 @@ FP16 kernels additionally require a max-error bound within 2× the PyTorch FP16 
 | 07 | Half-Precision (FP16) | FP16 | 59.268 ms | 1.09x | 9.3 | 4.2% |
 | 08 | WMMA Tensor Cores | FP16 | 39.471 ms | 1.50x | 13.9 | 6.2% |
 | 09 | Split-Q Warp Partitioning | FP16 | 32.298 ms | 1.22x | 17.0 | 7.6% |
-| 10 | [Warp-local Register Dataflow](./docs/10_register_dataflow.md) | FP16 | **3.035 ms** | 10.64x | **181.1** | **82.3%** |
+| 10 | [Warp-Owned Register Dataflow](./docs/10_register_dataflow.md) | FP16 | **3.035 ms** | 10.64x | **181.1** | **82.3%** |
 
 The large Step 09 → Step 10 transition is analyzed with profiler counters in
 [Nsight Compute Analysis — Step 10](./docs/ncu/10_register_dataflow.md).
