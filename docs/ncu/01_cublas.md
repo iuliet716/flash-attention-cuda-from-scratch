@@ -56,7 +56,7 @@ SM Throughput       24.9%
 L1/TEX Throughput   29.1%
 L2 Throughput       45.5%
 DRAM Throughput     22.3%
-```text
+```
 
 The high L1/TEX pressure disappears because the GEMM uses tiled computation and better data reuse
 
@@ -65,7 +65,7 @@ Nsight Compute also reports approximately:
 Eligible warps / scheduler ≈ 0.56
 Instruction issue interval ≈ 4 cycles
 Theoretical occupancy      ≈ 58%
-```text
+```
 
 The kernel still has latency and resource limits, but is much better utilized than the naive implementation.
 
