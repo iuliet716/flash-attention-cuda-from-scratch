@@ -109,7 +109,7 @@ $$
 e^{m_{\text{old}}-m_{\text{new}}}
 $$
 
-and the current tile probabilities are
+and the current tile unnormalized weights are
 
 $$
 p_j =
@@ -209,19 +209,19 @@ For `B=8, H=16, N=4096, d=64`:
 | 04   |           ~1.5 GB |
 
 Fusion removes the HBM traffic for materializing the $N \times N$ intermediate attention matrices,  
-while severe shared-memory bank conflicts limit the fused kernel.
+while scalar matrix computation and severe shared-memory bank conflicts limit the fused kernel.
 
 Detailed profiler metrics are documented separately:
 
 → [Nsight Compute Analysis — Step 04](ncu/04_naive_fused.md)
 
 > **Note**  
-> DRAM throughput is low in both Step 00 and Step 04, but for different reasons:  
-> inefficient memory access in Step 00, and reduced intermediate HBM traffic after fusion in Step 04.
+> DRAM throughput is low in both Step 00 and Step 04, but for different reasons.  
+> inefficient memory access in Step 00, while Step 04 substantially reduces intermediate HBM traffic and shifts the bottleneck on-chip.
 
 ## Conclusion
 
-Step 04 introduces tiled fused attention, eliminating the full $N \times N$ attention matrix from HBM.
+Step 04 introduces tiled fused attention, avoiding materialization of the full \(N \times N\) attention matrix in HBM.
 
 The following steps optimize how data moves through the fused kernel:
 
