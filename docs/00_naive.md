@@ -99,7 +99,7 @@ For `B=8, H=16, N=4096, d=64`:
 | Kernel  | Main observation                                                 |
 | ------- | ---------------------------------------------------------------- |
 | `QKᵀ`   | 99.6% L1/TEX vs. 2.6% DRAM, with inefficient memory transactions |
-| Softmax | .0% SM throughput and ~0.02 eligible warps/scheduler             |
+| Softmax | 1.0% SM throughput and ~0.02 eligible warps/scheduler             |
 | `PV`    | 90% SM/L1 utilization with ~58% Long Scoreboard stalls           |
 
 The baseline is **not simply DRAM-bandwidth bound**.
