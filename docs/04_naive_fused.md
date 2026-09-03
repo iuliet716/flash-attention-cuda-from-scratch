@@ -205,7 +205,7 @@ For `B=8, H=16, N=4096, d=64`:
 
 | Step | Total HBM traffic |
 | ---- | ----------------: |
-| 00   |          ~58.0 GB |
+| 02   |          ~48.3 GB |
 | 04   |           ~1.5 GB |
 
 Fusion removes the HBM traffic for materializing the $N \times N$ intermediate attention matrices,  
