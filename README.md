@@ -4,7 +4,7 @@ The implementation starts from naive attention and is progressively optimized st
 
 Each optimization step is preserved separately to show how individual design affects performance.
 
-See [docs](./docs/README.md) for detailed design notes and Nsight Compute profiles.
+See [docs](./docs/README.md) for detailed design notes and Nsight Compute analysis.
 
 [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) provides the official implementation.
 
