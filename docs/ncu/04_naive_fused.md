@@ -28,15 +28,15 @@ The full $N \times N$ score and probability matrices are no longer materialized 
 
 ## Overview
 
-| Metric                     | Value |
-| -------------------------- | ----: |
-| SM Throughput              | 27.2% |
-| L1/TEX Throughput          | 95.1% |
-| L2 Throughput              |  5.2% |
-| DRAM Throughput            | 0.18% |
-| Achieved Occupancy         | 83.0% |
-| Eligible warps / scheduler |  0.54 |
-| Shared-load bank conflicts | 10.3x |
+| Metric                               | Value |
+| ------------------------------------ | ----: |
+| SM Throughput                        | 27.2% |
+| L1/TEX Throughput                    | 95.1% |
+| L2 Throughput                        |  5.2% |
+| DRAM Throughput                      | 0.18% |
+| Achieved Occupancy                   | 83.0% |
+| Eligible warps / scheduler           |  0.54 |
+| Shared-load bank conflicts / request |  10.3 |
 
 DRAM throughput is very low after fusion, while L1/TEX throughput is nearly saturated.
 
