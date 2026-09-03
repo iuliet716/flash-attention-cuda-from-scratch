@@ -50,7 +50,7 @@ DRAM Throughput     2.6%
 
 The naive kernel saturated the L1/TEX path because of inefficient memory access.
 
-But, With cuBLAS:
+With cuBLAS:
 ```text
 SM Throughput       24.9%
 L1/TEX Throughput   29.1%
@@ -58,7 +58,7 @@ L2 Throughput       45.5%
 DRAM Throughput     22.3%
 ```
 
-The high L1/TEX pressure disappears because the GEMM uses tiled computation and better data reuse
+L1/TEX pressure drops substantially as cuBLAS uses tiled computation and better data reuse.
 
 Nsight Compute also reports approximately:
 ```text
@@ -67,7 +67,8 @@ Instruction issue interval ≈ 4 cycles
 Theoretical occupancy      ≈ 58%
 ```
 
-The kernel still has latency and resource limits, but is much better utilized than the naive implementation.
+These metrics indicate much better warp scheduling and latency hiding,  
+resulting in substantially better utilization than the naive implementation.
 
 ## PV
 
