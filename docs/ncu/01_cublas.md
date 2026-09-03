@@ -61,11 +61,9 @@ DRAM Throughput     22.3%
 L1/TEX pressure drops substantially as cuBLAS uses tiled computation and better data reuse.
 
 Nsight Compute also reports approximately:
-```text
-Eligible warps / scheduler ≈ 0.56
-Instruction issue interval ≈ 4 cycles
-Theoretical occupancy      ≈ 58%
-```
+> Eligible warps / scheduler ≈ 0.56  
+> Instruction issue interval ≈ 4 cycles  
+> Theoretical occupancy      ≈ 58%
 
 These metrics indicate much better warp scheduling and latency hiding,  
 resulting in substantially better utilization than the naive implementation.
