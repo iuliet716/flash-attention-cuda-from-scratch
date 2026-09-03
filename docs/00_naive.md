@@ -74,9 +74,9 @@ A single thread processes an entire attention row.
 
 The max reduction, exponential sum, and normalization are all performed serially, leaving substantial parallelism unused.
 
-### 3. Materialized attention matrices
+### 3. Materialized attention matrix
 
-The full score and probability matrices are stored in device memory between kernels.
+The full $(N \times N)$ attention matrix is materialized in device memory.
 
 For each attention operation:
 
@@ -92,7 +92,7 @@ This introduces $O(N^2)$ intermediate device-memory traffic in addition to the a
 
 ## Nsight Compute summary
 
-Nsight Compute confirms that these design choices produce different bottlenecks across the three kernels.
+Nsight Compute shows different bottlenecks across the three kernels.
 
 For `B=8, H=16, N=4096, d=64`:
 
@@ -102,13 +102,14 @@ For `B=8, H=16, N=4096, d=64`:
 | Softmax | 1.0% SM throughput and ~0.02 eligible warps/scheduler             |
 | `PV`    | 90% SM/L1 utilization with ~58% Long Scoreboard stalls           |
 
-For QKᵀ, low DRAM throughput does not indicate efficient memory use:  
-inefficient transactions saturate the L1/TEX path before DRAM bandwidth is fully utilized.
+For `QKᵀ`, low DRAM throughput does not indicate efficient memory use.  
+Inefficient transactions saturate the L1/TEX path before DRAM bandwidth is fully utilized.  
 
-Softmax instead suffers from low scheduler eligibility and long per-thread sequential work,  
-while PV achieves high utilization but still incurs significant memory-dependency stalls.
+Softmax suffers from low scheduler eligibility and long per-thread sequential work.
 
-The baseline is therefore not simply DRAM-bandwidth bound; each kernel is limited by a different part of the execution and memory path.
+PV achieves high utilization but still incurs significant memory-dependency stalls.
+
+The full baseline still moves about **58 GB of device-memory traffic** per forward pass, largely from the $N \times N$ attention matrix.
 
 Detailed profiler metrics and stall analysis are documented separately:
 
@@ -116,10 +117,10 @@ Detailed profiler metrics and stall analysis are documented separately:
 
 ## Conclusion
 
-The naive implementation establishes the baseline and exposes the two problems that drive the following optimizations:
+The naive implementation establishes the baseline and exposes two classes of problems:
 
-* inefficient scalar kernels
-* repeated global-memory reads and writes of the $N \times N$ attention matrix
+* **kernel-level inefficiencies in matrix multiplication and softmax**
+* **repeated device-memory traffic from the $N \times N$ attention matrix**
 
-The next steps first optimize the individual operations before moving toward tiled, fused attention that keeps intermediate state on chip.
+The next steps optimize individual operations before moving to tiled fusion that avoids materializing the full attention matrix.
 
