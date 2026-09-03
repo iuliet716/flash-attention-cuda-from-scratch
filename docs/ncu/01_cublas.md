@@ -60,13 +60,15 @@ DRAM Throughput     22.3%
 
 L1/TEX pressure drops substantially as cuBLAS uses tiled computation and better data reuse.
 
-Nsight Compute also reports approximately:
-> Eligible warps / scheduler ≈ 0.56  
-> Instruction issue interval ≈ 4 cycles  
-> Theoretical occupancy      ≈ 58%
+Nsight Compute also shows improved scheduling behavior compared with the naive `QKᵀ` kernel:
 
-These metrics indicate much better warp scheduling and latency hiding,  
-resulting in substantially better utilization than the naive implementation.
+| Metric                     |  Step 00 `QKᵀ` |  Step 01 cuBLAS `QKᵀ` |
+| -------------------------- | -------------: | --------------------: |
+| Eligible warps / scheduler |           0.35 |                  0.56 |
+| Instruction issue interval |    13.6 cycles |             ~4 cycles |
+| Theoretical occupancy      |           100% |                  ~58% |
+
+Although theoretical occupancy is lower, more eligible warps and a shorter issue interval indicate more effective execution.
 
 ## PV
 
