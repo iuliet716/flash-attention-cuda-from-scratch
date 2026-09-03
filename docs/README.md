@@ -30,7 +30,7 @@ d = 64
 ```
 
 Nsight Compute is used for kernel-level analysis only.  
-Latency values in the main README come from separate warm-up and repeated benchmark runs.
+Latency values in the main README come from separate warm-up and repeated benchmark runs, not from the profiler.
 
 Profiles are collected with:
 
