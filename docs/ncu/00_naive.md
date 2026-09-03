@@ -32,8 +32,8 @@ A full Nsight Compute metric set was collected for each kernel.
 
 | Kernel  | SM Throughput | L1/TEX |    L2 |  DRAM | Main signal                                                 |
 | ------- | ------------: | -----: | ----: | ----: | ----------------------------------------------------------- |
-| `QKᵀ`   |         22.5% |  99.6% | 10.4% |  2.6% | L1/TEX saturation and inefficient memory transactions    |
-| Softmax |          1.0% |  18.4% | 37.2% | 12.8% | highly serialized execution and very low eligible-warp rate |
+| `QKᵀ`   |         22.5% |  99.6% | 10.4% |  2.6% | L1/TEX saturation and inefficient memory transactions       |
+| Softmax |          1.0% |  18.4% | 37.2% | 12.8% | latency- and serialization-limited execution                |
 | `PV`    |         90.0% |  90.4% | 15.2% |  9.1% | high utilization with significant memory-dependency stalls  |
 
 Each kernel exhibits a different bottleneck.
