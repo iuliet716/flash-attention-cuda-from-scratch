@@ -96,7 +96,7 @@ Use FP16 WMMA operations for QKᵀ and PV matrix multiplication.
 ### Split-Q Warp Partitioning
 Give each warp its own 16-row Q/O slice while the block shares the K/V tile.
 
-### Warp-local Register Dataflow
+### Warp-Owned Register Dataflow
 Keep Q, S/P, O, and softmax state in the owner warp's registers instead of shared memory.
 
 
