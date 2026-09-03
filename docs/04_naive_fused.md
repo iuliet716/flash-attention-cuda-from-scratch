@@ -195,13 +195,13 @@ The attention matrix is no longer materialized in HBM, but the fused kernel is s
 
 For `B=8, H=16, N=4096, d=64`:
 
-| Metric                     | Value |
-| -------------------------- | ----: |
-| SM throughput              | 27.2% |
-| L1/TEX throughput          | 95.1% |
-| DRAM throughput            | 0.18% |
-| Eligible warps / scheduler |  0.54 |
-| Shared-load bank conflict  | 11.3× |
+| Metric                            | Value |
+| --------------------------------- | ----: |
+| SM throughput                     | 27.2% |
+| L1/TEX throughput                 | 95.1% |
+| DRAM throughput                   | 0.18% |
+| Eligible warps / scheduler        |  0.54 |
+| Shared-load wavefronts / request  | 11.3× |
 
 | Step | Total HBM traffic |
 | ---- | ----------------: |
