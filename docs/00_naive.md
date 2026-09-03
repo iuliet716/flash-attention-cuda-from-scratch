@@ -96,11 +96,11 @@ Nsight Compute confirms that these design choices produce different bottlenecks 
 
 For `B=8, H=16, N=4096, d=64`:
 
-| Kernel  | Main observation                                                                       |
-| ------- | -------------------------------------------------------------------------------------- |
-| `QKᵀ`   | L1/TEX reaches 99.6% while DRAM remains at 2.6%, with inefficient global-load accesses |
-| Softmax | only 1.0% SM throughput and extremely low eligible-warp rate                           |
-| `PV`    | high SM/L1 utilization, but significant memory-dependency stalls remain                |
+| Kernel  | Main observation                                                 |
+| ------- | ---------------------------------------------------------------- |
+| `QKᵀ`   | 99.6% L1/TEX vs. 2.6% DRAM, with inefficient memory transactions |
+| Softmax | .0% SM throughput and ~0.02 eligible warps/scheduler             |
+| `PV`    | 90% SM/L1 utilization with ~58% Long Scoreboard stalls           |
 
 The baseline is **not simply DRAM-bandwidth bound**.
 
