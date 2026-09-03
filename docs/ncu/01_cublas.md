@@ -68,7 +68,7 @@ Nsight Compute also shows improved scheduling behavior compared with the naive `
 | Instruction issue interval |    13.6 cycles |             ~4 cycles |
 | Theoretical occupancy      |           100% |                  ~58% |
 
-Although theoretical occupancy is lower, more eligible warps and a shorter issue interval indicate more effective execution.
+Although theoretical occupancy is lower, more eligible warps and a shorter issue interval indicate better scheduling and latency hiding.
 
 ## PV
 
