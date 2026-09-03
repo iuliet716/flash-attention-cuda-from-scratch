@@ -52,7 +52,6 @@ Bank conflicts            133.2 B
 
 or roughly:
 
-11.3 shared-memory wavefronts / load request
 10.3 shared-memory bank conficts / load request
 
 For $QK^\top$, lanes access:
