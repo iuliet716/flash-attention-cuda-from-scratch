@@ -36,7 +36,7 @@ The full $N \times N$ score and probability matrices are no longer materialized 
 | DRAM Throughput            | 0.18% |
 | Achieved Occupancy         | 83.0% |
 | Eligible warps / scheduler |  0.54 |
-| Shared-load bank conflict  | 11.3x |
+| Shared-load bank conflicts | 10.3x |
 
 DRAM throughput is very low after fusion, while L1/TEX throughput is nearly saturated.
 
@@ -53,6 +53,7 @@ Bank conflicts            133.2 B
 or roughly:
 
 11.3 shared-memory wavefronts / load request
+10.3 shared-memory bank conficts / load request
 
 For $QK^\top$, lanes access:
 
@@ -78,6 +79,8 @@ MIO-throttle stalls dominate, indicating heavy shared-memory instruction pressur
 This is consistent with the heavy shared-memory instruction pressure caused by the conflicted accesses.
 
 ## Effect of fusion
+
+Compared with the optimized unfused baseline:
 
 | Step | HBM read | HBM write | Total |
 | ---- | -------: | --------: | ----: |
