@@ -91,7 +91,7 @@ SM Throughput       90.0%
 L1/TEX Throughput   90.4%
 L2 Throughput       15.2%
 DRAM Throughput      9.1%
-```text
+```
 
 Unlike QKᵀ and Softmax, both SM and L1/TEX utilization are high.
 
