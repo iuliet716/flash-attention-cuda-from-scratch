@@ -1,6 +1,6 @@
-# Nsight Compute Analysis — Step 10: Warp-local Register Dataflow
+# Nsight Compute Analysis — Step 10: Warp-Owned Register Dataflow
 
-This document contains the detailed Nsight Compute analysis for [Step 10: Warp-local Register Dataflow](../10_register_dataflow.md).
+This document contains the detailed Nsight Compute analysis for [Step 10: Warp-Owned Register Dataflow](../10_register_dataflow.md).
 
 The goal is to verify whether moving the warp-owned Q, S/P, O, and online-softmax state from shared memory into registers removes the shared-memory bottleneck exposed in Step 09, and to identify the next limiting factor.
 
