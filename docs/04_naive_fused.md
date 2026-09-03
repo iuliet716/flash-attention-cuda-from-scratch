@@ -189,33 +189,39 @@ This kernel establishes the **fused tiled attention structure**, but the matrix 
 * no optimized shared-memory layout
 * no double buffering or asynchronous copies
 
-The attention matrix is no longer materialized in HBM, but efficient on-chip data movement is still required for the fused kernel to perform well.
+The attention matrix is no longer materialized in HBM, but the fused kernel is still limited by inefficient on-chip data movement.
 
 ## Nsight Compute summary
 
-Nsight Compute shows that the bottleneck has moved away from DRAM traffic and into the on-chip memory path.
+For `B=8, H=16, N=4096, d=64`:
 
-The naive shared-memory access pattern produces severe bank conflicts and high memory-pipeline pressure, leaving relatively few warps eligible to issue despite high occupancy.
+| Metric                     | Value |
+| -------------------------- | ----: |
+| SM throughput              | 27.2% |
+| L1/TEX throughput          | 95.1% |
+| DRAM throughput            | 0.18% |
+| Eligible warps / scheduler |  0.54 |
+| Shared-load bank conflict  | 11.3× |
+
+| Step | Total HBM traffic |
+| ---- | ----------------: |
+| 00   |          ~58.0 GB |
+| 04   |           ~1.5 GB |
+
+Fusion removes the HBM traffic for materializing the $N \times N$ intermediate attention matrices,  
+while severe shared-memory bank conflicts limit the fused kernel.
 
 Detailed profiler metrics are documented separately:
 
 → [Nsight Compute Analysis — Step 04](ncu/04_naive_fused.md)
 
+> **Note**  
+> DRAM throughput is low in both Step 00 and Step 04, but for different reasons:  
+> inefficient memory access in Step 00, and reduced intermediate HBM traffic after fusion in Step 04.
+
 ## Conclusion
 
-Step 04 introduces the essential fused attention dataflow:
-
-```text
-tiled QKᵀ
-    ↓
-online softmax
-    ↓
-immediate PV accumulation
-    ↓
-no N × N intermediate matrix in HBM
-```
-
-However, eliminating the intermediate matrix does not by itself make the kernel efficient.
+Step 04 introduces tiled fused attention, eliminating the full $N \times N$ attention matrix from HBM.
 
 The following steps optimize how data moves through the fused kernel:
 
