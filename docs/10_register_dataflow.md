@@ -1,4 +1,4 @@
-# Step 10. Warp-local Register Dataflow
+# Step 10. Warp-Owned Register Dataflow
 
 ## What this step implements
 
