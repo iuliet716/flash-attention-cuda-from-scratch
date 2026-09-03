@@ -60,7 +60,17 @@ for (int offset = 16; offset > 0; offset >>= 1) {
 
 ## Nsight Compute summary
 
-The warp-level implementation removes the severe thread-level serialization and inefficient memory accesses of the previous softmax kernel.
+For `B=8, H=16, N=4096, d=64`:
+
+| Kernel       | Main observation                                         |
+| ------------ | -------------------------------------------------------- |
+| cuBLAS `QKᵀ` | 24.1% SM throughput with similar behavior to Step 01     |
+| Warp softmax | 4.2% SM throughput and ~0.06 eligible warps/scheduler    |
+| cuBLAS `PV`  | 25.2% SM throughput with similar optimized GEMM behavior |
+
+Warp-level parallelism improves SM utilization and memory access efficiency.
+
+However, low eligible warps and LG-throttle stalls indicate that global memory accesses still limit performance.
 
 Detailed profiler metrics are documented separately:
 
@@ -72,4 +82,4 @@ Warp-level reduction improves softmax by distributing each row across 32 lanes a
 
 However, the full $N \times N$ score matrix is still materialized and repeatedly accessed in global memory.
 
-Step 03 introduces online softmax, while later fused steps address the larger intermediate-memory cost.
+Step 03 introduces online softmax, preparing for later fused steps that eliminate this intermediate matrix.
