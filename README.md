@@ -125,7 +125,4 @@ $ python benchmark.py
   # python benchmark.py -B 8 -H 16 -N 4096 -d 64
 ```
 
-Nsight Compute profiling methodology and reproduction commands are documented in
-[docs/ncu/README.md](./docs/ncu/README.md).
-
 
