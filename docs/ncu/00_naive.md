@@ -32,13 +32,11 @@ A full Nsight Compute metric set was collected for each kernel.
 
 | Kernel  | SM Throughput | L1/TEX |    L2 |  DRAM | Main signal                                                 |
 | ------- | ------------: | -----: | ----: | ----: | ----------------------------------------------------------- |
-| `QKᵀ`   |         22.5% |  99.6% | 10.4% |  2.6% | L1/TEX saturation and inefficient global-memory accesses    |
+| `QKᵀ`   |         22.5% |  99.6% | 10.4% |  2.6% | L1/TEX saturation and inefficient memory transactions    |
 | Softmax |          1.0% |  18.4% | 37.2% | 12.8% | highly serialized execution and very low eligible-warp rate |
 | `PV`    |         90.0% |  90.4% | 15.2% |  9.1% | high utilization with significant memory-dependency stalls  |
 
-The three kernels are limited by different parts of the execution pipeline.
-
-There is therefore no single bottleneck that explains the entire baseline.
+Each kernel exhibits a different bottleneck.
 
 ---
 
@@ -61,7 +59,7 @@ Nsight Compute also reports:
 
 This indicates inefficient memory transactions.
 
-Therefore, QKᵀ is likely limited by inefficient memory accesses and L1/TEX pressure, rather than DRAM bandwidth.
+Therefore, QKᵀ is likely limited by inefficient memory accesses that place pressure on L1/TEX, rather than DRAM bandwidth.
 
 ## Softmax 
 
@@ -104,8 +102,6 @@ PV is better utilized than the other baseline kernels, but it can still be impro
 
 ## Conclusion
 
-The baseline is not simply DRAM-bandwidth bound.
-
-Its performance is limited by inefficient memory access, low parallelism, long dependency chains, and poor data reuse.
+The baseline has different bottlenecks across its three kernels, rather than a single DRAM-bandwidth limitation.
 
 These observations motivate the following steps: optimized GEMM, warp-level softmax, and eventually tiled fused attention.
