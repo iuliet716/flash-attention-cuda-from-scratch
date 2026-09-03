@@ -40,7 +40,7 @@ The full $N \times N$ score and probability matrices are no longer materialized 
 
 DRAM throughput is very low after fusion, while L1/TEX throughput is nearly saturated.
 
-The bottleneck has therefore shifted from intermediate HBM traffic to inefficient on-chip data movement.
+Fusion removes most intermediate HBM traffic, exposing inefficient on-chip data movement as the next bottleneck.
 
 ## Shared-memory bank conflicts
 
@@ -52,7 +52,7 @@ Bank conflicts            133.2 B
 
 or roughly:
 
-10.3 shared-memory bank conficts / load request
+10.3 shared-memory bank conflicts / load request
 
 For $QK^\top$, lanes access:
 
@@ -60,7 +60,7 @@ For $QK^\top$, lanes access:
 
 With `d = 64`, adjacent lanes access rows separated by 64 floats, causing many accesses to hit the same shared-memory banks.
 
-Serialization increases shared-memory traffic, driving high L1/TEX utilization despite low DRAM throughput.
+Serialization multiplies shared-memory wavefronts, driving high L1/TEX utilization despite low DRAM throughput.
 
 ## Scheduler efficiency
 
@@ -73,9 +73,7 @@ Instruction issue interval    ~7.2 cycles
 
 The kernel therefore has enough resident warps, **but few are ready to issue instructions.**
 
-MIO-throttle stalls dominate, indicating heavy shared-memory instruction pressure.
-
-This is consistent with the heavy shared-memory instruction pressure caused by the conflicted accesses.
+MIO-throttle stalls dominate, consistent with the heavy shared-memory transaction pressure from the conflicted loads.
 
 ## Effect of fusion
 
