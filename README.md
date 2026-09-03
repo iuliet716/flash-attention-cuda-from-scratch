@@ -76,7 +76,7 @@ The large Step 09 → Step 10 transition is analyzed with profiler counters in
 
 # Kernel Design Highlights
 
-See [docs](./docs) for detailed design notes.
+See [docs](./docs/README.md) for detailed design notes.
 
 ### SRAM Tiling
 Process Q/K/V in tiles to avoid materializing the full attention matrix in HBM.
