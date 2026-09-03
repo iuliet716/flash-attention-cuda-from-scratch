@@ -99,11 +99,11 @@ return cublasSgemmStridedBatched(
 
 For `B=8, H=16, N=4096, d=64`:
 
-| Kernel       | Main observation                                             |
-| ------------ | ------------------------------------------------------------ |
-| cuBLAS `QKᵀ` | naive L1/TEX saturation is removed                           |
-| Softmax      | very low eligible-warp rate and serialized execution remain  |
-| cuBLAS `PV`  | scalar GEMM is replaced by an optimized tiled implementation |
+| Kernel       | Main observation                                           |
+| ------------ | ---------------------------------------------------------- |
+| cuBLAS `QKᵀ` | 29.1% L1/TEX, with improved memory access and data reuse   |
+| Softmax      | 1.0% SM throughput and ~0.02 eligible warps/scheduler      |
+| cuBLAS `PV`  | 25.2% SM throughput with similar optimized GEMM behavior   |
 
 The GEMM access behavior improves substantially compared with Step 00.
 
