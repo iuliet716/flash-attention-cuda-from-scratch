@@ -70,12 +70,13 @@ Despite high occupancy, very few resident warps are ready to issue instructions.
 The dominant scheduler stall is **LG throttle**, indicating pressure on the local/global-memory instruction path.
 
 DRAM throughput reaches only 35.1%, so the kernel is not saturating raw DRAM bandwidth.  
-Instead, frequent global load/store instructions limit instruction issue.
+Instead, frequent global-memory instructions create issue pressure, reflected in the dominant LG-throttle stalls.
 
 ## Conclusion
 
-Warp-level softmax removes the previous lack of parallelism within each row and inefficient memory access.
+Warp-level softmax improves row-wise parallelism and global memory access efficiency.
 
-However, the kernel still makes multiple passes over the materialized $N \times N$ score matrix, resulting in frequent global-memory operations and LG-throttle stalls.
+However, the kernel still makes multiple passes over the materialized $N \times N$ score matrix,  
+keeping global-memory instruction pressure high and contributing to LG-throttle stalls.
 
 Step 03 introduces online softmax, preparing for later fused steps that eliminate this intermediate matrix.
