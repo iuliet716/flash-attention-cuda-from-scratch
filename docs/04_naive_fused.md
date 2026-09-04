@@ -221,7 +221,7 @@ Detailed profiler metrics are documented separately:
 
 ## Conclusion
 
-Step 04 introduces tiled fused attention, avoiding materialization of the full \(N \times N\) attention matrix in HBM.
+Step 04 introduces tiled fused attention, avoiding materialization of the full $(N \times N)$ attention matrix in HBM.
 
 The following steps optimize how data moves through the fused kernel:
 
