@@ -10,7 +10,7 @@ Selected steps also include an [Nsight Compute](#nsight-compute-profiling) analy
 | 02   | Warp-reduction Softmax              | [doc](./02_warp_softmax.md)      | [profile](./ncu/02_warp_softmax.md)      |
 | 03   | Online Softmax                      | [doc](./03_online_softmax.md)    | —                                        |
 | 04   | Naive Fused Attention (SRAM Tiling) | [doc](./04_naive_fused.md)       | [profile](./ncu/04_naive_fused.md)       |
-| 05   | Coalescing + Vectorized Load        | [doc](./05_vectorized_load.md)   | [profile](./ncu/05_vectorized_load.md)   |
+| 05   | Vectorized Load                     | [doc](./05_vectorized_load.md)   | [profile](./ncu/05_vectorized_load.md)   |
 | 06   | Shared-Memory Swizzling             | [doc](./06_swizzling.md)         | [profile](./ncu/06_swizzling.md)         |
 | 07   | Half-Precision (FP16)               | [doc](./07_fp16.md)              | [profile](./ncu/07_fp16.md)              |
 | 08   | WMMA Tensor Cores                   | [doc](./08_wmma.md)              | [profile](./ncu/08_wmma.md)              |
