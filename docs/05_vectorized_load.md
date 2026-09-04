@@ -1,4 +1,4 @@
-# Step 5. Coalescing + Vectorized Load
+# Step 5. Vectorized Load
 
 ## What this step implements
 
