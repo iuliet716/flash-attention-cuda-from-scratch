@@ -33,7 +33,7 @@ $$
 
 Counts QKᵀ and PV FLOPs; not hardware-counter FLOPs.
 
-Correctness is checked against PyTorch SDPA Math using random inputs with Q scaled by 1× (standard) and 4× (peaked).
+Correctness is checked against PyTorch SDPA Math at 1× (standard) and 4× (peaked) logit scales.
 
 * FP32: `rtol = 1e-4`, `atol = 1e-5`
 * FP16: `rtol = 1e-2`, `atol = 1e-2`
