@@ -70,7 +70,7 @@ For `B=8, H=16, N=4096, d=64`:
 
 Warp-level parallelism improves SM utilization and memory access efficiency.
 
-However, low eligible warps and LG-throttle stalls indicate that the **global memory instruction path still limits performance.**
+However, low eligible warps and LG-throttle stalls indicate that **global memory accesses still limit performance.**
 
 Detailed profiler metrics are documented separately:
 
