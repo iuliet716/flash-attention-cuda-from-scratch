@@ -1,6 +1,6 @@
-# Nsight Compute Analysis — Step 05: Coalescing + Vectorized Load
+# Nsight Compute Analysis — Step 05: Vectorized Load
 
-This document contains the detailed Nsight Compute analysis for [Step 05: Coalescing + Vectorized Load](../05_vectorized_load.md).
+This document contains the detailed Nsight Compute analysis for [Step 05: Vectorized Load](../05_vectorized_load.md).
 
 The goal is to measure how float4 vectorization changes memory-instruction pressure and identify the remaining bottlenecks.
 
