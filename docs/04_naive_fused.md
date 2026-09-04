@@ -215,10 +215,6 @@ Detailed profiler metrics are documented separately:
 
 → [Nsight Compute Analysis — Step 04](ncu/04_naive_fused.md)
 
-> **Note**  
-> DRAM throughput is low in both Step 00 and Step 04, but for different reasons.  
-> inefficient global memory access in Step 00, versus reduced HBM traffic after fusion in Step 04.
-
 ## Conclusion
 
 Step 04 introduces tiled fused attention, avoiding materialization of the full $(N \times N)$ attention matrix in HBM.
