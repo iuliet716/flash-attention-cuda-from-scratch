@@ -32,8 +32,6 @@ Softmax remains unchanged from Step 00.
 
 ## Overview
 
-Only the GEMM kernels change in Step 01; softmax remains unchanged.
-
 | Metric            | QKᵀ Step 00 | QKᵀ Step 01 | PV Step 00 | PV Step 01 |
 | ----------------- | ----------: | ----------: | ---------: | ---------: |
 | SM Throughput     |       22.5% |       24.9% |      90.0% |      25.2% |
