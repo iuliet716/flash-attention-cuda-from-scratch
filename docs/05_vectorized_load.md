@@ -146,58 +146,32 @@ With `d` divisible by four, each row remains 16-byte aligned for `float4` access
 
 ## Nsight Compute summary
 
-Nsight Compute confirms that the `float4` accesses reduce memory-instruction pressure substantially.
+For `B=8, H=16, N=4096, d=64`:
 
-Compared with Step 04:
+| Metric                               |     Step 04 |     Step 05 |
+| ------------------------------------ | ----------: | ----------: |
+| SM throughput                        |       27.2% |       47.5% |
+| L1/TEX throughput                    |       95.1% |       84.7% |
+| Shared-load requests                 |      12.88B |       6.44B |
+| Shared-load bank conflicts / request |        10.3 |         4.7 |
+| MIO-throttle stall / issued inst.    | 50.3 cycles | 11.2 cycles |
+| Achieved occupancy                   |       83.0% |       49.9% |
 
-```text
-Shared-load requests          12.88B →  6.44B
-Shared-load wavefronts       146.09B → 40.80B
-MIO-throttle stall             50.3 → 11.2 cycles / issued inst.
-Instruction-issue interval      7.2 →  4.1 cycles
-SM Throughput                  27.2% → 47.5%
-```
+Vectorized accesses reduce shared-memory requests and MIO pressure, raising SM throughput.
 
-Global loads use all 32 bytes of each memory sector, and Nsight Compute reports zero excessive global sectors.
+Higher register usage lowers occupancy, but reduced MIO pressure keeps the kernel well utilized.
 
-Vectorization increases register usage from 40 to 65 registers per thread,  
-reducing achieved occupancy from approximately 83% to 50%. Despite the lower occupancy,  
-the kernel is faster because each resident warp spends much less time stalled on the memory-instruction path.
+The shared-memory layout is still conflict-prone, making the remaining bank conflicts the next bottleneck.
 
 Detailed profiler metrics are documented separately:
 
 → [Nsight Compute Analysis — Step 05](ncu/05_vectorized_load.md)
 
-## Remaining bottlenecks
-
-Although memory accesses are now vectorized, the matrix operations are still implemented with conventional FP32 arithmetic.
-
-In particular:
-
-* $QK^\top$ still uses explicit multiply-add loops
-* $PV$ still uses scalar FP32 accumulation
-* no Tensor Cores are used
-* shared-memory access patterns are not yet optimized for bank conflicts
-* tile loading and computation are still serialized
-
-The profile still reports an average 6.3-way shared-load bank conflict, with approximately 73.7% of shared-load wavefronts associated with conflicts.
-
-The next step addresses these **shared-memory bank conflicts** by changing the shared-memory layout with swizzling.
-
 ## Conclusion
 
-Step 05 changes the access granularity without changing the fused attention algorithm:
+Step 05 replaces scalar accesses with float4 vectorization,  
+reducing memory-instruction and MIO pressure without changing the fused attention algorithm.
 
-```text
-scalar loads
-    ↓
-coalesced float4 loads
-    ↓
-fewer memory instructions
-    ↓
-lower MIO pressure
-```
+This improves SM utilization, but the shared-memory layout still causes significant bank conflicts.
 
-However, vectorization reduces the amount of shared-memory work without fixing the row-major bank-mapping problem itself.
-
-Step 06 introduces shared-memory swizzling to address the remaining bank conflicts.
+Step 06 addresses these conflicts with shared-memory swizzling.
