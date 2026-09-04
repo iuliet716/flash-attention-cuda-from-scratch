@@ -44,7 +44,7 @@ Vectorization substantially reduces pressure on the on-chip memory path.
 
 ## Effect of vectorization
 
-Q, K, and V are loaded using aligned float4 accesses.
+Q, K, and V tile loads use aligned float4 accesses, and Q/K reads from shared memory during $QK^\top$ are vectorized as well.
 
 Nsight Compute reports:
 ```text
@@ -71,7 +71,7 @@ Step 05    40.80 B
 Fewer shared-memory requests and wavefronts reduce pressure on the MIO pipeline,  
 so warps spend less time waiting to issue memory instructions.
 
-As a result, These reductions lower MIO-throttle stalls from 50.3 to 11.2 cycles,  
+As a result, these reductions lower MIO-throttle stalls from 50.3 to 11.2 cycles,  
 improving the issue interval from 7.2 to 4.1 cycles and SM throughput from 27.2% to 47.5%.
 
 ## Occupancy trade-off
@@ -94,7 +94,7 @@ Step 04    0.54
 Step 05    0.53
 ```
 
-Despite fewer resident warps, reduced MIO stalls keep more warps ready to issue,  
+Despite fewer resident warps, reduced MIO stalls leave a larger fraction of them ready to issue,
 so eligible warps per scheduler remain nearly unchanged.
 
 This shows that lower occupancy does not necessarily reduce performance when each resident warp executes more efficiently.
