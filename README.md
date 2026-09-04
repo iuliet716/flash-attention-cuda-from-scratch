@@ -55,7 +55,7 @@ FP16 kernels additionally require a max-error bound within 2× the PyTorch FP16 
 | Step | Technique | dtype | Latency | Speedup | TFLOPS | %&nbsp;SDPA |
 |---|---|---|---|---|---|---|
 | 04 | Naive Fused Attention<br>(SRAM Tiling) | FP32 | 333.742&nbsp;ms | - | 1.6 | 0.7% |
-| 05 | Coalescing + Vectorized Load | FP32 | 121.008&nbsp;ms | 2.76x | 4.5 | 2.0% |
+| 05 | Vectorized Load | FP32 | 121.008&nbsp;ms | 2.76x | 4.5 | 2.0% |
 | 06 | Bank Conflict Avoidance (Swizzling) | FP32 | 64.687 ms | 1.87x | 8.5 | 3.9% |
 | 07 | Half-Precision (FP16) | FP16 | 59.268 ms | 1.09x | 9.3 | 4.2% |
 | 08 | WMMA Tensor Cores | FP16 | 39.471 ms | 1.50x | 13.9 | 6.2% |
@@ -84,7 +84,7 @@ Process Q/K/V in tiles to avoid materializing the full attention matrix in HBM.
 ### Online Softmax
 Compute numerically stable softmax incrementally across K/V tiles.
 
-### Coalesced & Vectorized Memory Access
+### Vectorized Memory Access
 Improve global-memory efficiency with aligned and vectorized loads.
 
 ### Shared-Memory Swizzling
