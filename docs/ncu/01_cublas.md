@@ -32,12 +32,13 @@ Softmax remains unchanged from Step 00.
 
 ## Overview
 
-| Metric            | QKᵀ Step 00 | QKᵀ Step 01 | PV Step 00 | PV Step 01 |
-| ----------------- | ----------: | ----------: | ---------: | ---------: |
-| SM Throughput     |       22.5% |       24.9% |      90.0% |      25.2% |
-| L1/TEX Throughput |       99.6% |       29.1% |      90.4% |      29.0% |
-| L2 Throughput     |       10.4% |       45.5% |      15.2% |      45.5% |
-| DRAM Throughput   |        2.6% |       22.3% |       9.1% |      22.3% |
+| Metric            | Step 00 `QKᵀ` | Step 01 cuBLAS `QKᵀ` | Step 00 `PV` | Step 01 cuBLAS `PV` |
+| ----------------- | ------------: | -------------------: | -----------: | ------------------: |
+| SM Throughput     |         22.5% |                24.9% |        90.0% |               25.2% |
+| L1/TEX Throughput |         99.6% |                29.1% |        90.4% |               29.0% |
+| L2 Throughput     |         10.4% |                45.5% |        15.2% |               45.5% |
+| DRAM Throughput   |          2.6% |                22.3% |         9.1% |               22.3% |
+
 
 ---
 
