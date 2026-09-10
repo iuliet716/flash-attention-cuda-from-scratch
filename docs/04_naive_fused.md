@@ -1,4 +1,4 @@
-# Step 4. Naive Fused Attention (SRAM Tiling)
+# Step 04. Naive Fused Attention (SRAM Tiling)
 
 ## What this step implements
 
