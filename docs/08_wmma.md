@@ -6,8 +6,9 @@ Step 07 reduced Q, K, V, and O to FP16, but the matrix multiplications were stil
 
 This step replaces both $QK^\top$ and $PV$ with **WMMA operations on Tensor Cores**.
 
-The online-softmax algorithm remains unchanged.  
-Only the matrix-multiplication path is reorganized around WMMA tiles.
+The online softmax formulation is retained, while tile geometry, warp mapping, and shared-memory layout are reorganized for WMMA.
+
+Both matrix multiplications use FP16 operands with FP32 accumulation.
 
 ## WMMA tile layout
 
@@ -177,7 +178,10 @@ const float p =
 Ps[r * BC + c] = __float2half(p);
 ```
 
-This FP16 `P` tile can then be used directly as a WMMA operand for $PV$.
+The FP16 P tile supplies the WMMA operand for $PV$.  
+It stores unnormalized exponentials; normalization is applied after all K/V tiles.
+
+The running softmax state remains FP32, but rounding P to FP16 introduces an additional numerical difference from Step 07.
 
 ## PV with Tensor Cores
 
@@ -315,31 +319,29 @@ The explicit XOR indexing used in Step 06 and Step 07 is therefore no longer use
 
 ## Nsight Compute summary
 
-Nsight Compute confirms that Step 08 reaches the Tensor Core pipeline, but also shows that the Tensor Cores are lightly utilized.
+For `B=8, H=16, N=4096, d=64`:
 
-| Metric                         |  Step 07  |  Step 08  |
-| ------------------------------ | --------: | -------: |
-| Tensor-pipe utilization        |    0.0%   |   2.90%  |
-| Dynamic shared memory / block  |  9,216 B  | 33,472 B |
-| Achieved occupancy             |   66.5%   |   16.6%  | 
-| Eligible warps / scheduler     |    2.26   |    0.12  |
-| Issue-active cycles            |   67.1%   |   10.9%  |
+| Metric | Step 07 | Step 08 |
+| --- | ---: | ---: |
+| Tensor-pipe utilization | 0.0% | 2.90% |
+| Global-load requests | 134.35M | 67.24M |
+| Global-load sectors | 2.15B | 1.08B |
+| Dynamic shared memory / block | 9,216 B | 33,472 B |
+| Achieved occupancy | 66.5% | 16.6% |
+| Eligible warps / scheduler | 2.26 | 0.12 |
+| Issue-active cycles | 67.1% | 10.9% |
 
-The nonzero Tensor-pipe value verifies that the generated kernel executes WMMA/HMMA instructions.  
-It does not indicate that the Tensor Cores are saturated.
+The reported `HMMA.16816.F32` instructions and nonzero Tensor-pipe utilization confirm Tensor Core execution.
 
-The larger `BR = 16` tile also lets each block reuse K and V across twice as many query rows as Step 07.  
-Global-load requests and sectors therefore fall by approximately half,  
-but this is a tile-reuse effect of the overall redesign rather than a Tensor Core effect alone.
+Increasing `BR` from 8 to 16 doubles K/V reuse across query rows,  
+approximately halving global-load requests and sectors.
 
-The new shared-memory intermediates and padded Q/K/V tiles increase the per-block footprint enough to limit each SM to two blocks.  
-With four warps per block, this leaves only eight resident warps per SM.
+The larger shared-memory footprint limits residency to two blocks per SM.  
+With four warps per block, theoretical occupancy is 16.7%.
 
-Barrier stalls then become the largest warp-stall reason at 8.88 cycles per issued instruction.  
-The main imbalance is the warp-0-only softmax:  
-the other three warps wait at the following block-wide barrier.
+These changes reflect the combined effect of WMMA, tile geometry, warp mapping, and shared-memory layout.
 
-Detailed profiler metrics are documented separately:
+Detailed profiler metrics:
 
 → [Nsight Compute Analysis — Step 08](ncu/08_wmma.md)
 
@@ -349,67 +351,6 @@ The output columns are divided across four warps:
 
 ```cuda
 const int dw = d / WARPS;
-```
-
-Each WMMA output tile contains 16 columns, so the number of columns assigned to each warp must be divisible by 16.
-
-Therefore:
-
-```text
-d / 4 must be divisible by 16
-
-→ d must be divisible by 64
-```
-
-The implementation enforces this condition:
-
-```cuda
-TORCH_CHECK(
-    d % 64 == 0,
-    "head dim must be a multiple of 64"
-);
-```
-
-With the current `FUSED_D_MAX`, this supports head dimensions 64 and 128.
-
-## Remaining bottlenecks
-
-WMMA removes the scalar dot-product loops from $QK^\top$ and $PV$, but intermediate tiles are still stored in shared memory:
-
-```text
-Q, K, V : FP16 shared memory
-S       : FP32 shared memory
-P       : FP16 shared memory
-O       : FP32 shared memory
-```
-
-WMMA fragments are written back to shared memory before later stages consume them.
-
-The profile shows two additional costs:
-
-* the warp-0-only softmax leaves the other three warps waiting at a block-wide barrier
-* the unpadded S, P, and O layouts, together with WMMA fragment accesses, produce substantial shared-memory bank conflicts
-
-Nsight Compute reports an average 11.5-way conflict for shared loads and 9.1-way conflict for shared stores.  
-These values describe the complete redesigned access pattern;  
-they should not be attributed to the removal of XOR swizzling alone.
-
-Step 08 therefore introduces Tensor Core computation, but does not yet keep the Tensor pipeline busy.  
-The next step reorganizes the warp mapping so that the softmax rows and WMMA tiles are distributed across all warps.
-
-## Conclusion
-
-Step 08 establishes a mixed-precision Tensor Core path for both matrix multiplications:
-
-```text
-FP16 Q, K, P, V
-        ↓
-WMMA QK^T and PV
-        ↓
-FP32 accumulation
-```
-
-The online-softmax formulation remains unchanged.
 
 The profile verifies that Tensor Core instructions are executed,  
 while also showing that the overall WMMA redesign introduces a larger shared-memory footprint, low occupancy, warp-level work imbalance, and conflict-heavy shared accesses.
