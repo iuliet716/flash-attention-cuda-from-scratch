@@ -1,4 +1,4 @@
-# Step 8. WMMA Tensor Cores
+# Step 08. WMMA Tensor Cores
 
 ## What this step implements
 
