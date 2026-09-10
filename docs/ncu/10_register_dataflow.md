@@ -175,6 +175,6 @@ The measured changes support the following explanation for the 10.64x benchmark 
 
 These effects are coupled and their ratios should not be multiplied together.
 
-The counters strongly support the register-dataflow redesign as the overall explanation.
-They do not establish how much of the speedup comes from each individual change.
+The counters strongly support the register-dataflow redesign as the overall explanation.  
+They do not establish how much of the speedup comes from each individual change.  
 That attribution would require controlled comparisons of intermediate implementations.
