@@ -1,4 +1,4 @@
-# Step 5. Vectorized Load
+# Step 05. Vectorized Load
 
 ## What this step implements
 
