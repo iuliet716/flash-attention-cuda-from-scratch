@@ -1,134 +1,73 @@
-# Step 9. Split-Q Warp Partitioning
+# Step 09. Split-Q Warp Partitioning
 
 ## What this step implements
 
-Step 08 moved both $QK^\top$ and $PV$ onto Tensor Cores, but its warp mapping was still imbalanced.
+Step 08 introduced WMMA for both $QK^\top$ and $PV$, but only warp 0 performed softmax while the other warps waited.
 
-All four warps cooperated on the same 16-row Q tile:
+Each warp computes attention scores, softmax, and output for **its own query rows**.
 
-```text
-Q rows 0:16
-    ↓
-warp 0 → score columns  0:16
-warp 1 → score columns 16:32
-warp 2 → score columns 32:48
-warp 3 → score columns 48:64
-```
+| Configuration | Step 08 | Step 09 |
+| --- | ---: | ---: |
+| Q rows / block (`BR`) | 16 | 64 |
+| K/V rows / tile (`BC`) | 64 | 64 |
+| Warps / block | 4 | 4 |
+| Q rows / warp | Same 16 rows | Separate 16 rows |
+| Softmax | Warp 0 only | All four warps |
+| K/V staging | Separate buffers | Reused buffer |
 
-After $QK^\top$, however, only warp 0 performed the online softmax for all 16 rows.
+Both matrix multiplications retain FP16 operands with FP32 accumulation.  
+The online softmax formulation is unchanged.
 
-The other three warps waited at the following block-wide barrier.
+## Split-Q warp mapping
 
-This step changes the work partition so that each warp owns a separate **16-row Q/O slice** for the entire attention computation.
+The kernel assigns one WMMA row tile to each warp:
 
 ```cuda
 constexpr int BR = 64;
 constexpr int BC = 64;
 constexpr int WARPS = 4;
-
 constexpr int ROWS_PER_WARP = BR / WARPS;
 
 static_assert(
     ROWS_PER_WARP == WMMA_M,
     "each warp owns one WMMA row tile"
 );
-```
 
-Therefore:
-
-```text
-warp 0 : Q/O rows  0:16
-warp 1 : Q/O rows 16:32
-warp 2 : Q/O rows 32:48
-warp 3 : Q/O rows 48:64
-```
-
-K and V tiles remain shared across the block.
-
-The arithmetic precision and online-softmax formulation are unchanged from Step 08.
-
-## Split-Q warp mapping
-
-Each warp determines the first row of its owned slice:
-
-```cuda
 const int r0 = warp * ROWS_PER_WARP;
 ```
 
-With four warps:
+Each warp computes every score and output column for its assigned rows:
 
-```text
-                     64 Q rows
+| Warp | Q/S/P/O rows within the block |
+| --- | --- |
+| 0 | `[0, 16)` |
+| 1 | `[16, 32)` |
+| 2 | `[32, 48)` |
+| 3 | `[48, 64)` |
 
-             warp 0   rows  0:16
-             warp 1   rows 16:32
-             warp 2   rows 32:48
-             warp 3   rows 48:64
+All warps read the same K/V tile, but their S/P/O slices do not overlap.
 
-                        │
-                        │ shared K/V tile
-                        ▼
-
-                    64 K/V rows
-```
-
-The important change is the ownership direction.
-
-Step 08 partitions work mainly across the column dimension of the same Q tile.
-
-Step 09 partitions the Q rows themselves:
-
-```text
-Step 08
-
-same Q rows
-    ↓
-warps split K / output-column work
-
-
-Step 09
-
-Q rows split across warps
-    ↓
-each warp owns its rows through
-QK^T → softmax → PV
-```
-
-This gives each warp an independent output-row slice and removes the warp-0-only softmax structure.
+This follows the Q-row partitioning idea in [FlashAttention-2](https://tridao.me/publications/flash2/flash2.pdf).  
 
 ## QKᵀ follows Q-row ownership
 
-Each warp now computes all score columns for the 16 query rows it owns.
+Each warp computes a `16 x 64` score slice using four `16 x 16` WMMA tiles.
+
+The outer loop covers all K rows in the tile:
 
 ```cuda
 for (int j = 0; j < BC; j += WMMA_N) {
-    wmma::fragment<
-        wmma::accumulator,
-        WMMA_M, WMMA_N, WMMA_K,
-        float
-    > s_frag;
-
-    wmma::fill_fragment(s_frag, 0.0f);
-
+    // Initialize the FP32 score fragment.
+    ...
     for (int k = 0; k < d; k += WMMA_K) {
-        ...
         wmma::load_matrix_sync(
-            q_frag,
-            Qs + r0 * ldh + k,
-            ldh
+            q_frag, Qs + r0 * ldh + k, ldh
         );
-
         wmma::load_matrix_sync(
-            k_frag,
-            KVsm + j * ldh + k,
-            ldh
+            k_frag, KVsm + j * ldh + k, ldh
         );
-
         wmma::mma_sync(
-            s_frag,
-            q_frag,
-            k_frag,
-            s_frag
+            s_frag, q_frag, k_frag, s_frag
         );
     }
 
@@ -141,112 +80,49 @@ for (int j = 0; j < BC; j += WMMA_N) {
 }
 ```
 
-Conceptually:
+Q loads and S stores use the warp's row offset `r0`.  
+K loads access the shared tile.
 
-```text
-warp 0
-
-Q[ 0:16, :] × K^T[:, 0:64]
-        ↓
-S[ 0:16, 0:64]
-
-
-warp 1
-
-Q[16:32, :] × K^T[:, 0:64]
-        ↓
-S[16:32, 0:64]
-
-...
-```
-
-All warps read the same K tile, while each warp reads a different Q slice and writes a different S slice.
-
-The score slices do not overlap.
-
-Because the owner warp is also the only warp that consumes its S rows during softmax,  
-a block-wide synchronization is not required between the local $QK^\top$ computation and that warp's softmax:
+Only the owner warp consumes its S slice during softmax, so this transition uses warp-level synchronization:
 
 ```cuda
 __syncwarp();
 ```
 
-The block-wide synchronization is deferred until the shared K buffer is about to be reused.
+Block-wide synchronization is still required before reusing the shared K/V buffer.
 
-## Softmax is distributed across all warps
+## Softmax runs in every warp
 
-Step 08 assigns all softmax rows to warp 0:
-
-```cuda
-if (warp == 0 && lane < BR) {
-    ...
-}
-```
-
-Step 09 instead gives each warp the softmax rows corresponding to its Q slice:
+Each warp assigns its first 16 lanes to its 16 query rows:
 
 ```cuda
 if (lane < ROWS_PER_WARP) {
     const int r = r0 + lane;
-
+    // Compute online softmax for row r.
     ...
 }
 ```
 
-Each of the first 16 lanes handles one query row:
+Each active lane scans the 64 score columns of one row.  
+This distributes softmax across all four warps while retaining the one-lane-per-row implementation.
 
-```text
-warp 0 : lanes 0:15 → rows  0:16
-warp 1 : lanes 0:15 → rows 16:32
-warp 2 : lanes 0:15 → rows 32:48
-warp 3 : lanes 0:15 → rows 48:64
-```
-
-Therefore all four warps perform useful softmax work concurrently.
-
-The online-softmax state remains FP32:
-
-```cuda
-float* m_sm;
-float* l_sm;
-float* a_sm;
-```
-
-and the probability tile remains FP16:
+The running maximum, normalization factor, and output-rescaling factor remain FP32.  
+The unnormalized exponentials are stored in FP16 for $PV$:
 
 ```cuda
 Ps[r * BC + c] = __float2half(p);
 ```
 
-The numerical formulation is unchanged.
+Final normalization is applied after all K/V tiles have been processed.
 
-Only the ownership of the rows changes.
+## PV uses the same row partition
 
-## PV follows the same row partition
+Each warp rescales its previous output by the online-softmax factor, then adds the current $PV$ contribution.
 
-Step 08 divides the output columns across warps.
-
-For example, with `d = 64`:
-
-```text
-warp 0 : O[:,  0:16]
-warp 1 : O[:, 16:32]
-warp 2 : O[:, 32:48]
-warp 3 : O[:, 48:64]
-```
-
-Step 09 removes this column partition.
-
-Each warp instead computes every output column for its own 16 rows:
+The output-column loop covers the full head dimension:
 
 ```cuda
 for (int j = 0; j < d; j += WMMA_N) {
-    wmma::fragment<
-        wmma::accumulator,
-        WMMA_M, WMMA_N, WMMA_K,
-        float
-    > o_frag;
-
     wmma::load_matrix_sync(
         o_frag,
         Osm + r0 * d + j,
@@ -254,6 +130,7 @@ for (int j = 0; j < d; j += WMMA_N) {
         wmma::mem_row_major
     );
 
+    // Accumulate P[r0:r0+16, :] @ V[:, j:j+16].
     ...
 
     wmma::store_matrix_sync(
@@ -265,290 +142,67 @@ for (int j = 0; j < d; j += WMMA_N) {
 }
 ```
 
-The ownership is therefore consistent across the complete tile:
+The same warp owns each row's scores, softmax state, and output accumulator.  
+No cross-warp reduction is needed for an output row.
 
-```text
-warp
- │
- ├── Q rows
- │
- ├── S rows
- │
- ├── softmax rows
- │
- ├── P rows
- │
- └── O rows
-```
+## K/V reuse and staging
 
-No reduction between different warps is required to produce an output row.
+Increasing `BR` from 16 to 64 allows each loaded K/V tile to serve four times as many query rows.  
+For the same sequence length, this reduces the number of query blocks that scan K/V.
 
-This is the main structural advantage of the split-Q mapping.
-
-## Relation to FlashAttention-2
-
-This work partition follows the main within-block scheduling idea used by FlashAttention-2.
-
-The original FlashAttention warp partition divides K/V-side work between warps, which requires communication of intermediate results.
-
-FlashAttention-2 instead divides Q across warps while keeping K and V accessible to all warps.
-
-Conceptually:
-
-```text
-K, V
-shared by the block
-     │
-     ├────────┬────────┬────────┐
-     ▼        ▼        ▼        ▼
-
-   warp 0   warp 1   warp 2   warp 3
-   Q 0:16   Q16:32   Q32:48   Q48:64
-      │        │        │        │
-      ▼        ▼        ▼        ▼
-   O 0:16   O16:32   O32:48   O48:64
-```
-
-Step 09 adopts this **split-Q ownership direction**.
-
-However, this implementation should not yet be considered a complete FlashAttention-2 dataflow.
-
-The current kernel still stores several warp-local intermediates in shared memory:
-
-```text
-S       : FP32 shared memory
-P       : FP16 shared memory
-O       : FP32 shared memory
-m, l, α : FP32 shared memory
-```
-
-The split-Q mapping creates independent warp ownership,  
-but the implementation does not yet fully exploit that independence to keep the corresponding data in registers.
-
-That is addressed in the next step.
-
-## Larger Q tile improves K/V reuse
-
-The Q tile also increases from:
-
-```text
-Step 08 : BR = 16
-Step 09 : BR = 64
-```
-
-while:
-
-```text
-BC = 64
-```
-
-remains unchanged.
-
-A loaded K/V tile is therefore reused across four times as many query rows.
-
-For a fixed sequence length, increasing `BR` reduces the number of Q blocks that independently scan the K/V tiles.
-
-Each loaded K/V tile is therefore reused across more Q rows before the block completes.
-
-This is a second benefit of the redesign, separate from removing the warp-0-only softmax imbalance.
-
-The Step 08 → Step 09 change should therefore be interpreted as the combined effect of:
-
-```text
-split-Q warp ownership
-+
-distributed softmax
-+
-larger BR
-+
-greater K/V reuse
-+
-changed shared-memory allocation
-```
-
-rather than the warp mapping alone.
-
-## Reusing the K/V staging buffer
-
-Increasing `BR` from 16 to 64 substantially increases the shared-memory footprint.
-
-Keeping separate padded K and V tiles would make the allocation especially large for `d = 128`.
-
-Step 09 therefore uses one shared buffer for both:
-
-```cuda
-__half* KVsm =
-    Qs + BR * ldh;
-```
-
-K is loaded first:
-
-```text
-KVsm = K tile
-    ↓
-QK^T
-    ↓
-softmax
-```
-
-After all warps finish reading K, the block synchronizes:
-
-```cuda
-__syncthreads();
-```
-
-The same memory is then overwritten with V:
-
-```text
-KVsm = V tile
-    ↓
-PV
-```
-
-This is safe because K is no longer needed once the score tile has been produced.
-
-The buffer reuse reduces the dynamic shared-memory requirement compared with keeping separate K and V staging regions.
-
-This is buffer reuse, not double buffering.
-
-The kernel still uses:
+The larger Q, S, P, and O tiles also increase shared-memory usage.  
+To limit this growth, K and V reuse one staging buffer:
 
 ```cuda
 constexpr int STAGES = 1;
+
+__half* KVsm = Qs + BR * ldh;
 ```
 
-and K/V loading remains synchronous.
+Within each iteration:
+
+1. The block loads K and synchronizes.
+2. Each warp computes its score slice and softmax.
+3. The block synchronizes before overwriting K with V.
+4. The block loads V and synchronizes.
+5. Each warp updates its output slice.
+6. The block synchronizes before the next K load.
+
+Loading remains synchronous and single-stage.
 
 ## Nsight Compute summary
 
-The split-Q mapping removes the most obvious warp-level imbalance from Step 08,  
-but the larger tile introduces a different constraint.
+For `B=8, H=16, N=4096, d=64`:
 
-For the profiled workload, Nsight Compute reports:
+| Metric | Step 08 | Step 09 |
+| --- | ---: | ---: |
+| Barrier stall / issued inst. | 8.88 cycles | 0.16 cycles |
+| Short-scoreboard stall / issued inst. | 3.91 cycles | 4.29 cycles |
+| Global-load requests | 67.24M | 16.91M |
+| Dynamic shared memory / block | 33,472 B | 62,208 B |
+| Achieved occupancy | 16.6% | 8.33% |
+| Eligible warps / scheduler | 0.12 | 0.11 |
+| Issue Active (%) | 10.9% | 10.9% |
 
-```text
-Dynamic shared memory / block    62,208 B
-Theoretical occupancy                8.3%
-```
+Distributing softmax is accompanied by a large reduction in barrier stalls.  
+The larger Q tile also reduces repeated K/V loads.
 
-Shared memory is the active residency limit.
+However, shared memory now limits residency to one four-warp block per SM.  
+Shared memory conflicts remain substantial, and short scoreboard becomes the largest stall category.
 
-Only one four-warp block can therefore reside on an SM.
-
-The profile also shows that shared-memory accesses remain heavily conflicted:
-
-```text
-Shared-load requests       578,813,952
-Average load conflict         11.4-way
-
-Shared-store requests      292,716,544
-Average store conflict         9.7-way
-```
-
-Approximately 85% of the shared-memory wavefronts are excessive.
-
-The largest profiler diagnostic is now a short-scoreboard dependency associated primarily with shared-memory operations:
-
-```text
-Short-scoreboard stall
-≈ 4.3 cycles / issued instruction
-
-≈ 47.6% of the average
-9.0 warp cycles between issued instructions
-```
-
-Nsight Compute also reports that all compute pipelines remain underutilized.
-
-This represents a different problem from Step 08.
-
-Step 08 had an explicit warp-level scheduling imbalance:
-
-```text
-warp 0 → softmax
-warps 1–3 → wait
-```
-
-Step 09 distributes that work:
-
-```text
-all four warps → softmax
-```
-
-but the kernel still moves the owned S, P, O, and softmax state through shared memory.
-
-The larger Q tile also lowers residency to one block per SM.
-
-The bottleneck therefore shifts toward the shared-memory dataflow and the low occupancy required to support it.
+The comparison includes changes to warp mapping, tile size, synchronization, and K/V staging.
 
 Detailed profiler metrics are documented separately:
 
 → [Nsight Compute Analysis — Step 09](ncu/09_split_q.md)
 
-## Remaining bottlenecks
-
-Step 09 establishes a much cleaner warp ownership model,  
-but the corresponding data is still mostly materialized in shared memory:
-
-```text
-Q       : FP16 shared memory
-K / V   : FP16 shared staging buffer
-S       : FP32 shared memory
-P       : FP16 shared memory
-O       : FP32 shared memory
-m, l, α : FP32 shared memory
-```
-
-This produces several remaining costs:
-
-* shared memory limits theoretical occupancy to 8.3%
-* S/P/O accesses still generate substantial bank conflicts
-* WMMA fragments are repeatedly stored to and loaded from shared memory
-* softmax state is shared-memory resident even though each row has a single owner warp
-* K/V loading remains synchronous and single-stage
-
-The split-Q mapping means most of these values now have a natural warp-local owner.
-
-Keeping them in shared memory therefore becomes increasingly unnecessary.
-
-The next step exploits this property by moving the warp-owned attention state into registers and removing much of the intermediate shared-memory traffic.
-
 ## Conclusion
 
-Step 09 changes the kernel from column-oriented warp cooperation to persistent Q-row ownership.
+Step 09 assigns each warp its own query rows throughout the attention computation.  
+Barrier stalls decrease, and the larger Q tile improves K/V reuse.
 
-```text
-Step 08
+Shared memory usage and bank conflicts still limit occupancy and instruction issue.  
+Independent row ownership provides a foundation for further optimization through register-based computation and reduced synchronization.
 
-16 Q rows
-   ↓
-four warps cooperate
-   ↓
-warp 0 performs softmax
-   ↓
-block-wide synchronization
-
-
-Step 09
-
-64 Q rows
-   ↓
-16 rows per warp
-   ↓
-QK^T
-   ↓
-softmax
-   ↓
-PV
-   ↓
-same warp owns the rows throughout
-```
-
-This follows the split-Q work-partitioning direction of FlashAttention-2 while preserving the existing WMMA and online-softmax implementation.
-
-The larger Q tile also increases K/V reuse, but most warp-local intermediates are still stored in shared memory.
-
-Nsight Compute therefore shows that shared-memory capacity, bank conflicts, and short-scoreboard stalls remain important constraints.
-
-Step 09 establishes the **ownership structure** needed for the next optimization.
-
-Step 10 turns that ownership into a more local dataflow by keeping the corresponding intermediate state in registers.
+Step 10 moves warp-owned intermediate state into registers.
+Later steps can build on this structure to overlap K/V loading with computation.
