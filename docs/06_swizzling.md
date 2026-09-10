@@ -1,4 +1,4 @@
-# Step 6. Bank Conflict Avoidance (Swizzling)
+# Step 06. Bank Conflict Avoidance (Swizzling)
 
 ## What this step implements
 
