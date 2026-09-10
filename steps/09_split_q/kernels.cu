@@ -122,8 +122,7 @@ __global__ void fused_attention_kernel(
             wmma::store_matrix_sync(
                 Ssm + r0 * BC + j, s_frag, BC, wmma::mem_row_major);
         }
-        // only the owner warp reads this S slice; K stays live until the
-        // block-wide barrier below
+        // only the owner warp reads this S slice; K stays live until the block-wide barrier below
         __syncwarp();
 
         // online softmax for the current score tile.
