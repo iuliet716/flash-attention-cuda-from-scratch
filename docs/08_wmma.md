@@ -329,12 +329,11 @@ For `B=8, H=16, N=4096, d=64`:
 | Dynamic shared memory / block | 9,216 B | 33,472 B |
 | Achieved occupancy | 66.5% | 16.6% |
 | Eligible warps / scheduler | 2.26 | 0.12 |
-| Issue-active cycles | 67.1% | 10.9% |
+| Issue Active (%) | 67.1% | 10.9% |
 
 The reported `HMMA.16816.F32` instructions and nonzero Tensor-pipe utilization confirm Tensor Core execution.
 
-Increasing `BR` from 8 to 16 doubles K/V reuse across query rows,  
-approximately halving global-load requests and sectors.
+Increasing `BR` from 8 to 16 doubles K/V reuse across query rows, approximately halving global-load requests and sectors.
 
 The larger shared-memory footprint limits residency to two blocks per SM.  
 With four warps per block, theoretical occupancy is 16.7%.
@@ -351,8 +350,42 @@ The output columns are divided across four warps:
 
 ```cuda
 const int dw = d / WARPS;
+```
 
-The profile verifies that Tensor Core instructions are executed,  
-while also showing that the overall WMMA redesign introduces a larger shared-memory footprint, low occupancy, warp-level work imbalance, and conflict-heavy shared accesses.
+Each warp processes 16-column WMMA tiles, so `d / 4` must be divisible by 16.  
+The implementation therefore requires:
 
-The measured change from Step 07 must therefore be interpreted as the combined effect of WMMA, new tile geometry, a different warp mapping, and a different shared-memory layout.
+```cuda
+TORCH_CHECK(
+    d % 64 == 0,
+    "head dim must be a multiple of 64"
+);
+```
+
+With `FUSED_D_MAX = 128`, the supported head dimensions are 64 and 128.
+
+## Remaining bottlenecks
+
+Intermediate tiles remain in shared memory:
+
+| Data | Storage |
+| --- | --- |
+| Q, K, V, P | FP16 shared memory |
+| S, O accumulator | FP32 shared memory |
+| Running maximum, normalization factor, rescale factor | FP32 shared memory |
+
+Only 16 lanes in warp 0 perform softmax, while warps 1–3 wait at the following block-wide barrier.  
+Barrier stalls are the largest category at 8.88 cycles per issued instruction.
+
+Shared-memory accesses also remain conflict-heavy.  
+Loads and stores require an average of 11.5 and 9.1 wavefronts per request.  
+The unpadded S/P row strides cause same-bank accesses when adjacent lanes process different rows.
+
+Low residency, uneven softmax work, and shared-memory serialization limit instruction issue and leave the Tensor pipeline lightly utilized.
+
+## Conclusion
+
+Step 08 moves both $QK^\top$ and $PV$ to Tensor Cores while retaining FP32 accumulation and the online-softmax formulation.
+
+The profile exposes work partitioning and shared-memory access as the next optimization targets.  
+Step 09 assigns each warp its own query rows across $QK^\top$, softmax, and $PV$.
