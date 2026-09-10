@@ -335,7 +335,7 @@ The reported `HMMA.16816.F32` instructions and nonzero Tensor-pipe utilization c
 
 Increasing `BR` from 8 to 16 doubles K/V reuse across query rows, approximately halving global-load requests and sectors.
 
-The larger shared-memory footprint limits residency to two blocks per SM.  
+The larger shared memory footprint limits residency to two blocks per SM.  
 With four warps per block, theoretical occupancy is 16.7%.
 
 These changes reflect the combined effect of WMMA, tile geometry, warp mapping, and shared-memory layout.
@@ -377,7 +377,7 @@ Intermediate tiles remain in shared memory:
 Only 16 lanes in warp 0 perform softmax, while warps 1–3 wait at the following block-wide barrier.  
 Barrier stalls are the largest category at 8.88 cycles per issued instruction.
 
-Shared-memory accesses also remain conflict-heavy.  
+Shared memory accesses also remain conflict-heavy.  
 Loads and stores require an average of 11.5 and 9.1 wavefronts per request.  
 The unpadded S/P row strides cause same-bank accesses when adjacent lanes process different rows.
 
@@ -385,7 +385,7 @@ Low residency, uneven softmax work, and shared-memory serialization limit instru
 
 ## Conclusion
 
-Step 08 moves both $QK^\top$ and $PV$ to Tensor Cores while retaining FP32 accumulation and the online-softmax formulation.
+Step 08 moves both $QK^\top$ and $PV$ to Tensor Cores while retaining FP32 accumulation and the online softmax formulation.
 
 The profile exposes work partitioning and shared-memory access as the next optimization targets.  
 Step 09 assigns each warp its own query rows across $QK^\top$, softmax, and $PV$.
