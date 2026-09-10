@@ -1,4 +1,4 @@
-# Step 0. Naive Standard Attention (Baseline)
+# Step 00. Naive Standard Attention (Baseline)
 
 ## What this step implements
 
