@@ -387,5 +387,5 @@ Low residency, uneven softmax work, and shared-memory serialization limit instru
 
 Step 08 moves both $QK^\top$ and $PV$ to Tensor Cores while retaining FP32 accumulation and the online softmax formulation.
 
-The profile exposes work partitioning and shared-memory access as the next optimization targets.  
+The profile exposes work partitioning and shared memory access as the next optimization targets.  
 Step 09 assigns each warp its own query rows across $QK^\top$, softmax, and $PV$.
