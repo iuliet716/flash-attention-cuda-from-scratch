@@ -199,7 +199,7 @@ Detailed profiler metrics are documented separately:
 ## Conclusion
 
 Step 09 assigns each warp its own query rows, reducing barrier stalls.  
-The larger Q tile improves K/V reuse, but its shared-memory footprint lowers occupancy, and bank conflicts remain substantial.
+The larger Q tile improves K/V reuse, but its shared memory footprint lowers occupancy, and bank conflicts remain substantial.
 
 This row partition supports further optimization:   
 Step 10 moves intermediate state into registers, while future work can overlap K/V loading with computation.
