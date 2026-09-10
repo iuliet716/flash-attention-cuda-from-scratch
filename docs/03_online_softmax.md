@@ -1,4 +1,4 @@
-# Step 3. Online Softmax
+# Step 03. Online Softmax
 
 ## What this step implements
 
