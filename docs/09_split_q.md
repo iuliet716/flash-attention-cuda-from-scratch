@@ -198,11 +198,8 @@ Detailed profiler metrics are documented separately:
 
 ## Conclusion
 
-Step 09 assigns each warp its own query rows throughout the attention computation.  
-Barrier stalls decrease, and the larger Q tile improves K/V reuse.
+Step 09 assigns each warp its own query rows, reducing barrier stalls.  
+The larger Q tile improves K/V reuse, but its shared-memory footprint lowers occupancy, and bank conflicts remain substantial.
 
-Shared memory usage and bank conflicts still limit occupancy and instruction issue.  
-Independent row ownership provides a foundation for further optimization through register-based computation and reduced synchronization.
-
-Step 10 moves warp-owned intermediate state into registers.
-Later steps can build on this structure to overlap K/V loading with computation.
+This row partition supports further optimization:   
+Step 10 moves intermediate state into registers, while future work can overlap K/V loading with computation.
