@@ -173,8 +173,6 @@ The measured changes support the following explanation for the 10.64x benchmark 
 - Lower dependency stalls and more available warps accompany higher instruction issue and Tensor-pipe utilization.
 - The revised softmax mapping reduces sequential work per row without introducing register spills in this profile.
 
-These effects are coupled and their ratios should not be multiplied together.
+Together, these measurements support the combined redesign as the explanation for the 10.64x speedup.  
 
-The counters strongly support the register-dataflow redesign as the overall explanation.  
-They do not establish how much of the speedup comes from each individual change.  
-That attribution would require controlled comparisons of intermediate implementations.
+Further optimization could focus on register usage, K/V shared-memory access, and overlapping K/V loading with computation.
