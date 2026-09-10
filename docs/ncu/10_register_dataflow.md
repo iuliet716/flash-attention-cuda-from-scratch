@@ -111,7 +111,7 @@ These changes support two complementary effects:
 - Fewer intermediate shared-memory dependencies.
 - More resident warps available to hide remaining dependencies.
 
-Both steps already use Tensor Cores.
+Both steps already use Tensor Cores.  
 The higher Tensor-pipe utilization is consistent with the surrounding dataflow allowing matrix operations to execute more frequently.
 
 Stall values are normalized per issued instruction, and the instruction stream also changes.  
