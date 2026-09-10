@@ -1,4 +1,4 @@
-# Step 1. cuBLAS GEMM
+# Step 01. cuBLAS GEMM
 
 ## What this step implements
 
