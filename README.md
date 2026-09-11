@@ -40,7 +40,7 @@ Correctness is checked against PyTorch SDPA Math at 1× (standard) and 4× (peak
 
 FP16 kernels additionally require a max-error bound within 2× the PyTorch FP16 reference error.
 
-`% SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.
+`% SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each kernel measurement.
 
 ## Track A: Unfused kernel
 
