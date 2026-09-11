@@ -40,6 +40,7 @@ Correctness is checked against PyTorch SDPA Math at 1× (standard) and 4× (peak
 
 FP16 kernels additionally require a max-error bound within 2× the PyTorch FP16 reference error.
 
+`% SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.
 
 ## Track A: Unfused kernel
 
@@ -72,7 +73,6 @@ The large Step 09 → Step 10 transition is analyzed with profiler counters in
 | PyTorch matmul + softmax | FP32 | 39.590 ms | 13.9 |
 | PyTorch SDPA FlashAttention (initial reference) | FP16 | 2.421 ms | 227.0 |
 
-> `% SDPA` uses a paired PyTorch SDPA FlashAttention measurement taken immediately after each custom-kernel measurement.  
 > The Reference table reports a separate initial SDPA measurement, so the `2.421 ms` value is not the denominator for every `% SDPA` entry.
 
 
