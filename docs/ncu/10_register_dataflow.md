@@ -21,6 +21,22 @@ Each warp owns 16 query rows, and both matrix multiplications use Tensor Cores.
 Step 10 moves Q, S/P, O, and softmax state into registers.  
 It also changes the MMA interface, softmax lane mapping, head-dimension specialization, and K/V staging.
 
+## Overview
+
+| Metric                                |     Step 09 |     Step 10 |
+| ------------------------------------- | ----------: | ----------: |
+| Dynamic shared memory / block         |    62,208 B |    20,480 B |
+| Registers / thread                    |          72 |         124 |
+| Achieved occupancy                    |       8.33% |      32.53% |
+| Active warps / scheduler              |        1.00 |        3.89 |
+| Eligible warps / scheduler            |        0.11 |        0.51 |
+| Short-scoreboard stall / issued inst. | 4.29 cycles | 0.42 cycles |
+| Issue Active (%)                      |       10.9% |       33.2% |
+| Tensor-pipe utilization               |       3.58% |      40.87% |
+
+Despite higher register usage, the smaller shared-memory footprint allows more resident warps.  
+Reduced shared-memory work and improved warp availability support higher instruction issue and Tensor-pipe utilization.
+
 ## Shared-memory accesses and bank conflicts
 
 In Step 09, the same warp produces and consumes its S/P/O state, but those values still pass through shared memory.  
