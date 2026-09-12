@@ -11,7 +11,7 @@ See [docs](./docs/README.md) for detailed design notes and Nsight Compute analys
 
 # Key Results
 - **3.035 ms** latency and **181.1 TFLOPS**
-- **82.3% of paired PyTorch SDPA FlashAttention performance**
+- **82.3% of PyTorch SDPA FlashAttention performance**
 
 
 # Benchmark
