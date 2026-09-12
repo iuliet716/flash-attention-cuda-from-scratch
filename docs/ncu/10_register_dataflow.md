@@ -21,23 +21,6 @@ Each warp owns 16 query rows, and both matrix multiplications use Tensor Cores.
 Step 10 moves Q, S/P, O, and softmax state into registers.  
 It also changes the MMA interface, softmax lane mapping, head-dimension specialization, and K/V staging.
 
-## Benchmark result
-
-The [repository benchmark](../../README.md#benchmark) reports:
-
-| Metric | Step 09 | Step 10 |
-| --- | ---: | ---: |
-| Latency | 32.298 ms | 3.035 ms |
-| Effective TFLOPS | 17.0 | 181.1 |
-
-This is a **10.64x speedup**.
-
-Timing uses CUDA events, with 10 warm-up runs and the median of 50 iterations.  
-Fast math is enabled, TF32 is disabled, and L2 flushing is disabled.
-
-These timings come from the benchmark, separately from the NCU counters below.  
-Effective TFLOPS is calculated from the same algorithmic FLOP count and latency; it is not independent evidence of the speedup.
-
 ## Shared-memory accesses and bank conflicts
 
 In Step 09, the same warp produces and consumes its S/P/O state, but those values still pass through shared memory.  
